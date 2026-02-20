@@ -2,7 +2,6 @@ body {
   font-family: Arial;
   margin: 0;
   background: #ffffff;
-  color: #333;
 }
 
 .brand {
@@ -16,7 +15,7 @@ body {
   background: white;
   padding: 25px;
   border-radius: 15px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
   text-align: center;
 }
 
@@ -37,7 +36,6 @@ button {
   color: white;
   font-weight: bold;
   cursor: pointer;
-  transition: 0.2s;
 }
 
 button:hover {
@@ -70,7 +68,6 @@ button:hover {
   text-align: center;
   font-weight: bold;
   cursor: pointer;
-  transition: 0.2s;
 }
 
 .categoryBtn:hover {
@@ -80,8 +77,8 @@ button:hover {
 
 .itemCard {
   border: 1px solid #eee;
-  padding: 10px;
-  margin: 8px 0;
+  padding: 8px;
+  margin: 5px 0;
   border-radius: 10px;
 }
 
@@ -90,6 +87,10 @@ button:hover {
 }
 
 @keyframes fade {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.error {
+  color: red;
 }
