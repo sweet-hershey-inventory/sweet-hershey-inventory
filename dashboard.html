@@ -7,30 +7,31 @@
 </head>
 <body>
 
-<div class="card">
-  <h3 id="employeeName"></h3>
-  <p id="lastShiftInfo"></p>
+<div class="topbar">
+  <div>
+    <strong id="employeeName"></strong>
+    <div id="lastDuty"></div>
+  </div>
   <button onclick="logout()">Logout</button>
+</div>
 
-  <hr>
+<div class="container fadeIn">
 
-  <h4>Before Shift Inventory</h4>
-  <div id="beforeInventory"></div>
-  <button onclick="saveShift('before')">Save Before Shift</button>
+  <h3>Select Category</h3>
+  <div id="categories" class="categoryGrid"></div>
 
-  <hr>
-
-  <h4>After Shift Inventory</h4>
-  <div id="afterInventory"></div>
-  <button onclick="saveShift('after')">Save After Shift</button>
-
-  <hr>
+  <div id="itemsSection" style="display:none;">
+    <h3 id="selectedCategoryTitle"></h3>
+    <div id="itemsList"></div>
+    <button onclick="saveShift()">Save Inventory</button>
+  </div>
 
   <div id="adminSection" style="display:none;">
-    <h4>Admin - Add Stock</h4>
-    <select id="addStockItem"></select>
-    <input type="number" id="addStockQty" placeholder="Quantity">
-    <button onclick="addStock()">Add Stock</button>
+    <hr>
+    <h3>Admin - Add Stock</h3>
+    <select id="adminItem"></select>
+    <input type="number" id="adminQty" placeholder="Quantity">
+    <button onclick="addStock()">Add</button>
   </div>
 
 </div>
