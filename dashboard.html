@@ -40,12 +40,25 @@
       <h4>After Shift Inventory</h4>
       <div id="afterList"></div>
 
-      <h4>Wasted Items</h4>
-      <div id="wasteSection"></div>
+      <div class="bottomSave">
+        <button onclick="confirmAfter()">Complete Shift</button>
+      </div>
 
-      <button onclick="confirmAfter()">Complete Shift</button>
+      <div class="bottomSave">
+        <button onclick="toggleWaste()">Add Waste (Optional)</button>
+      </div>
+
+      <div id="wasteSection" style="display:none;">
+        <h4>Waste Entry</h4>
+        <div id="wasteList"></div>
+      </div>
     </div>
 
+  </div>
+
+  <div id="shiftSummary" style="display:none;">
+    <h3>Last Shift Summary</h3>
+    <div id="summaryContent"></div>
   </div>
 
 </div>
