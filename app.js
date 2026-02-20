@@ -12,74 +12,20 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-let systemRole = null;
 let selectedCategory = null;
-
-// LOGIN
-document.getElementById("loginForm")?.addEventListener("submit", e => {
-  e.preventDefault();
-
-  const u = username.value;
-  const p = password.value;
-
-  if (u === "staff" && p === "hershey123") {
-    systemRole = "staff";
-    pinSection.style.display = "block";
-  }
-  else if (u === "admin" && p === "SWEEThershey2025") {
-    systemRole = "admin";
-    pinSection.style.display = "block";
-  }
-  else {
-    error.innerText = "Invalid login";
-  }
-});
-
-// PIN VERIFY
-document.getElementById("pinForm")?.addEventListener("submit", async e => {
-  e.preventDefault();
-
-  const snapshot = await getDocs(collection(db, "employees"));
-
-  snapshot.forEach(docSnap => {
-    const data = docSnap.data();
-
-    if (data.pin === pin.value) {
-
-      if (systemRole === "staff" && data.role !== "employee") {
-        error.innerText = "Staff cannot use admin PIN";
-        return;
-      }
-
-      if (systemRole === "admin" && data.role !== "admin") {
-        error.innerText = "Admin login required";
-        return;
-      }
-
-      localStorage.setItem("employeeName", data.name);
-      localStorage.setItem("role", data.role);
-      window.location.href = "dashboard.html";
-    }
-  });
-});
+let currentInventory = [];
+let beforeSaved = false;
 
 // DASHBOARD LOAD
 window.onload = async function () {
   if (!window.location.pathname.includes("dashboard")) return;
 
-  const name = localStorage.getItem("employeeName");
-  const role = localStorage.getItem("role");
-
-  document.getElementById("employeeName").innerText = name;
-
-  if (role === "admin") {
-    document.getElementById("adminSection").style.display = "block";
-  }
+  document.getElementById("employeeName").innerText =
+    localStorage.getItem("employeeName");
 
   startClock();
   loadCategories();
   loadLastDuty();
-  loadAdminItems();
 };
 
 // LIVE CLOCK
@@ -126,90 +72,100 @@ async function loadCategories() {
 // SELECT CATEGORY
 window.selectCategory = async function(cat) {
   selectedCategory = cat;
+  beforeSaved = false;
+
   document.getElementById("inventorySection").style.display = "block";
+  document.getElementById("afterSection").style.display = "none";
   document.getElementById("categoryTitle").innerText = cat.toUpperCase();
 
   const snapshot = await getDocs(collection(db, "inventory"));
+
   const beforeDiv = document.getElementById("beforeList");
   const afterDiv = document.getElementById("afterList");
+  const overallDiv = document.getElementById("overallStocks");
 
   beforeDiv.innerHTML = "";
   afterDiv.innerHTML = "";
+  overallDiv.innerHTML = "";
+
+  currentInventory = [];
 
   snapshot.forEach(docSnap => {
     const data = docSnap.data();
     if (data.category === cat) {
+
+      currentInventory.push({ id: docSnap.id, stock: data.stock });
+
+      overallDiv.innerHTML += `
+        <div>${data.name}: <strong>${data.stock}</strong></div>
+      `;
+
       beforeDiv.innerHTML += `
         <div class="itemCard">
           ${data.name}
           <input type="number" id="before_${docSnap.id}" value="${data.stock}">
         </div>
       `;
-      afterDiv.innerHTML += `
-        <div class="itemCard">
-          ${data.name}
-          <input type="number" id="after_${docSnap.id}" value="${data.stock}">
-        </div>
-      `;
     }
   });
 };
 
-// SAVE SHIFT
-window.saveShift = async function() {
-  const snapshot = await getDocs(collection(db, "inventory"));
-  const employee = localStorage.getItem("employeeName");
+// SAVE BEFORE SHIFT
+window.saveBefore = function() {
+  beforeSaved = true;
+  document.getElementById("afterSection").style.display = "block";
 
-  let before = {};
-  let after = {};
+  const afterDiv = document.getElementById("afterList");
+  afterDiv.innerHTML = "";
 
-  snapshot.forEach(docSnap => {
-    if (docSnap.data().category === selectedCategory) {
-      before[docSnap.id] = Number(document.getElementById("before_" + docSnap.id).value);
-      after[docSnap.id] = Number(document.getElementById("after_" + docSnap.id).value);
-    }
+  currentInventory.forEach(item => {
+    const val = document.getElementById("before_" + item.id).value;
+
+    afterDiv.innerHTML += `
+      <div class="itemCard">
+        ${item.id}
+        <input type="number" id="after_${item.id}" value="${val}">
+      </div>
+    `;
   });
+
+  alert("Before Shift saved. Now fill After Shift.");
+};
+
+// SAVE AFTER SHIFT
+window.saveAfter = async function() {
+
+  if (!beforeSaved) {
+    alert("Please complete Before Shift first.");
+    return;
+  }
+
+  const employee = localStorage.getItem("employeeName");
+  let beforeData = {};
+  let afterData = {};
+
+  for (let item of currentInventory) {
+    beforeData[item.id] = Number(document.getElementById("before_" + item.id).value);
+    afterData[item.id] = Number(document.getElementById("after_" + item.id).value);
+
+    // UPDATE MASTER STOCK
+    const ref = doc(db, "inventory", item.id);
+    await updateDoc(ref, {
+      stock: afterData[item.id]
+    });
+  }
 
   await addDoc(collection(db, "shifts"), {
     employee,
     category: selectedCategory,
-    before,
-    after,
+    before: beforeData,
+    after: afterData,
     timestamp: serverTimestamp()
   });
 
-  alert("Inventory saved!");
+  alert("Shift completed!");
   loadLastDuty();
-};
-
-// ADMIN LOAD ITEMS
-async function loadAdminItems() {
-  const snapshot = await getDocs(collection(db, "inventory"));
-  const select = document.getElementById("adminItem");
-  if (!select) return;
-
-  snapshot.forEach(docSnap => {
-    select.innerHTML += `
-      <option value="${docSnap.id}">
-        ${docSnap.data().name}
-      </option>
-    `;
-  });
-}
-
-// ADMIN ADD STOCK
-window.addStock = async function() {
-  const id = adminItem.value;
-  const qty = Number(adminQty.value);
-
-  const ref = doc(db, "inventory", id);
-  const snap = await getDoc(ref);
-
-  await updateDoc(ref, {
-    stock: snap.data().stock + qty
-  });
-
-  alert("Stock updated!");
+  selectCategory(selectedCategory);
 };
 
 window.logout = function() {
