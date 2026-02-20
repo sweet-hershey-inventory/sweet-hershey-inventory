@@ -24,21 +24,23 @@
   <div id="inventorySection" style="display:none;">
     <h3 id="categoryTitle"></h3>
 
-    <h4>Before Shift Inventory</h4>
-    <div id="beforeList"></div>
+    <div class="stockPanel">
+      <h4>Overall Stocks</h4>
+      <div id="overallStocks"></div>
+    </div>
 
-    <h4>After Shift Inventory</h4>
-    <div id="afterList"></div>
+    <div id="beforeSection">
+      <h4>Before Shift Inventory</h4>
+      <div id="beforeList"></div>
+      <button onclick="saveBefore()">Save Before Shift</button>
+    </div>
 
-    <button onclick="saveShift()">Save Inventory</button>
-  </div>
+    <div id="afterSection" style="display:none;">
+      <h4>After Shift Inventory</h4>
+      <div id="afterList"></div>
+      <button onclick="saveAfter()">Save After Shift</button>
+    </div>
 
-  <div id="adminSection" style="display:none;">
-    <hr>
-    <h3>Admin - Add Stock</h3>
-    <select id="adminItem"></select>
-    <input type="number" id="adminQty" placeholder="Quantity">
-    <button onclick="addStock()">Add Stock</button>
   </div>
 
 </div>
