@@ -25,10 +25,7 @@
 
     <h3 id="categoryTitle"></h3>
 
-    <div class="stockPanel">
-      <h4>Overall Stocks</h4>
-      <div id="overallStocks"></div>
-    </div>
+    <div id="overallStocks"></div>
 
     <!-- BEFORE -->
     <div id="beforeSection">
@@ -42,27 +39,20 @@
       <h4>After Shift Inventory</h4>
       <div id="afterList"></div>
 
-      <button id="toggleWasteBtn">Add Waste (Optional)</button>
+      <button id="toggleWasteBtn">Waste (Optional)</button>
       <button id="toggleAddStockBtn">Add Stock (Optional)</button>
 
-      <div id="wasteSection" style="display:none;">
-        <h4>Waste Entry (Per Category)</h4>
-        <div id="wasteList"></div>
-      </div>
-
-      <div id="addStockSection" style="display:none;">
-        <h4>Add Stock Entry (Per Category)</h4>
-        <div id="addStockList"></div>
-      </div>
+      <div id="wasteSection" style="display:none;"></div>
+      <div id="addStockSection" style="display:none;"></div>
 
       <button id="completeShiftBtn">Complete Shift</button>
     </div>
 
   </div>
 
-  <div id="shiftSummary" style="display:none;">
-    <h3>Your Shift Summary</h3>
-    <div id="summaryContent"></div>
+  <div id="previewSection" style="display:none;">
+    <h3>Shift Preview</h3>
+    <div id="previewContent"></div>
   </div>
 
 </div>
