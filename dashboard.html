@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="card">
+  <h3 id="employeeName"></h3>
+  <button onclick="logout()">Logout</button>
+
+  <h4>Inventory</h4>
+  <div id="inventoryList"></div>
+</div>
+
+<script type="module" src="firebase.js"></script>
+<script type="module" src="app.js"></script>
+<script type="module">
+
+import { db } from "./firebase.js";
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+window.logout = function() {
+  localStorage.clear();
+  window.location.href = "index.html";
+};
+
+window.onload = async function() {
+  const name = localStorage.getItem("employeeName");
+  document.getElementById("employeeName").innerText = name;
+
+  const snapshot = await getDocs(collection(db, "inventory"));
+  const list = document.getElementById("inventoryList");
+
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    list.innerHTML += `
+      <div style="border:1px solid #ddd; padding:10px; margin:5px; border-radius:8px;">
+        <strong>${data.name}</strong><br>
+        Category: ${data.category}<br>
+        Stock: ${data.stock}
+      </div>
+    `;
+  });
+};
+
+</script>
+
+</body>
+</html>
