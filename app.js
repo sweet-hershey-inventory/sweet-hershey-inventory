@@ -1,37 +1,58 @@
 import { db } from "./firebase.js";
-import { collection, getDocs, addDoc, updateDoc, doc, getDoc, serverTimestamp } 
+import { collection, getDocs, query, orderBy, limit, addDoc, doc, getDoc, updateDoc, serverTimestamp } 
 from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// SYSTEM LOGIN
-window.mainLogin = function() {
-  const username = document.getElementById("username").value;
-  const password = document.getElementById("password").value;
+let systemRole = null;
+let selectedCategory = null;
 
-  if (
-    (username === "staff" && password === "hershey123") ||
-    (username === "admin" && password === "SWEEThershey2025")
-  ) {
-    localStorage.setItem("systemRole", username);
-    document.getElementById("pinSection").style.display = "block";
-    document.getElementById("error").innerText = "";
-  } else {
-    document.getElementById("error").innerText = "Invalid system login";
+// LOGIN FORM
+document.getElementById("loginForm")?.addEventListener("submit", e => {
+  e.preventDefault();
+
+  const u = username.value;
+  const p = password.value;
+
+  if (u === "staff" && p === "hershey123") {
+    systemRole = "staff";
+    pinSection.style.display = "block";
   }
-};
+  else if (u === "admin" && p === "SWEEThershey2025") {
+    systemRole = "admin";
+    pinSection.style.display = "block";
+  }
+  else {
+    error.innerText = "Invalid login";
+  }
+});
 
 // PIN VERIFY
-window.verifyPin = async function() {
-  const pin = document.getElementById("pin").value;
+document.getElementById("pinForm")?.addEventListener("submit", async e => {
+  e.preventDefault();
+
   const snapshot = await getDocs(collection(db, "employees"));
 
   snapshot.forEach(docSnap => {
-    if (docSnap.data().pin === pin) {
-      localStorage.setItem("employeeName", docSnap.data().name);
-      localStorage.setItem("role", docSnap.data().role);
+    const data = docSnap.data();
+
+    if (data.pin === pin.value) {
+
+      // STRICT ROLE CHECK
+      if (systemRole === "staff" && data.role !== "employee") {
+        error.innerText = "Staff cannot access admin PIN";
+        return;
+      }
+
+      if (systemRole === "admin" && data.role !== "admin") {
+        error.innerText = "Admin login required for this PIN";
+        return;
+      }
+
+      localStorage.setItem("employeeName", data.name);
+      localStorage.setItem("role", data.role);
       window.location.href = "dashboard.html";
     }
   });
-};
+});
 
 // DASHBOARD LOAD
 window.onload = async function() {
@@ -39,108 +60,103 @@ window.onload = async function() {
 
   const name = localStorage.getItem("employeeName");
   const role = localStorage.getItem("role");
-  document.getElementById("employeeName").innerText = "Logged in as: " + name;
+
+  employeeName.innerText = name;
 
   if (role === "admin") {
-    document.getElementById("adminSection").style.display = "block";
+    adminSection.style.display = "block";
   }
 
-  loadInventory();
-  loadLastShift();
+  loadCategories();
+  loadLastDuty();
 };
 
-// LOAD INVENTORY INPUTS
-async function loadInventory() {
+// LOAD CATEGORIES
+async function loadCategories() {
   const snapshot = await getDocs(collection(db, "inventory"));
+  const categories = new Set();
 
-  const beforeDiv = document.getElementById("beforeInventory");
-  const afterDiv = document.getElementById("afterInventory");
-  const addStockSelect = document.getElementById("addStockItem");
+  snapshot.forEach(doc => {
+    categories.add(doc.data().category);
+  });
 
-  beforeDiv.innerHTML = "";
-  afterDiv.innerHTML = "";
-  if (addStockSelect) addStockSelect.innerHTML = "";
-
-  snapshot.forEach(docSnap => {
-    const data = docSnap.data();
-
-    beforeDiv.innerHTML += `
-      <div>${data.name} 
-        <input type="number" id="before_${docSnap.id}" value="${data.stock}">
+  categories.forEach(cat => {
+    categoriesDiv.innerHTML += `
+      <div class="categoryBtn" onclick="selectCategory('${cat}')">
+        ${cat.toUpperCase()}
       </div>
     `;
-
-    afterDiv.innerHTML += `
-      <div>${data.name} 
-        <input type="number" id="after_${docSnap.id}" value="${data.stock}">
-      </div>
-    `;
-
-    if (addStockSelect) {
-      addStockSelect.innerHTML += `
-        <option value="${docSnap.id}">${data.name}</option>
-      `;
-    }
   });
 }
 
+window.selectCategory = async function(cat) {
+  selectedCategory = cat;
+  itemsSection.style.display = "block";
+  selectedCategoryTitle.innerText = cat.toUpperCase();
+  itemsList.innerHTML = "";
+
+  const snapshot = await getDocs(collection(db, "inventory"));
+
+  snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+    if (data.category === cat) {
+      itemsList.innerHTML += `
+        <div class="itemCard">
+          ${data.name}
+          <input type="number" id="item_${docSnap.id}" value="${data.stock}">
+        </div>
+      `;
+    }
+  });
+};
+
 // SAVE SHIFT
-window.saveShift = async function(type) {
+window.saveShift = async function() {
   const snapshot = await getDocs(collection(db, "inventory"));
   const employee = localStorage.getItem("employeeName");
 
   let shiftData = {};
 
   snapshot.forEach(docSnap => {
-    const inputId = `${type}_${docSnap.id}`;
-    const value = document.getElementById(inputId).value;
-    shiftData[docSnap.id] = Number(value);
+    if (docSnap.data().category === selectedCategory) {
+      const val = document.getElementById("item_" + docSnap.id).value;
+      shiftData[docSnap.id] = Number(val);
+    }
   });
 
   await addDoc(collection(db, "shifts"), {
-    employee: employee,
-    type: type,
+    employee,
+    category: selectedCategory,
     data: shiftData,
-    date: new Date(),
     timestamp: serverTimestamp()
   });
 
-  alert("Shift saved successfully!");
+  alert("Inventory saved!");
 };
 
-// LOAD LAST SHIFT
-async function loadLastShift() {
-  const snapshot = await getDocs(collection(db, "shifts"));
-  let last = null;
+// LAST DUTY
+async function loadLastDuty() {
+  const q = query(collection(db, "shifts"), orderBy("timestamp", "desc"), limit(1));
+  const snapshot = await getDocs(q);
 
   snapshot.forEach(docSnap => {
-    last = docSnap.data();
+    lastDuty.innerText = "Last Duty: " + docSnap.data().employee;
   });
-
-  if (last) {
-    document.getElementById("lastShiftInfo").innerText =
-      "Last Inventory: " + last.employee + 
-      " | Type: " + last.type +
-      " | Date: " + new Date(last.date).toLocaleString();
-  }
 }
 
-// ADD STOCK (ADMIN ONLY)
+// ADMIN ADD STOCK
 window.addStock = async function() {
-  const itemId = document.getElementById("addStockItem").value;
-  const qty = Number(document.getElementById("addStockQty").value);
+  const id = adminItem.value;
+  const qty = Number(adminQty.value);
 
-  const ref = doc(db, "inventory", itemId);
+  const ref = doc(db, "inventory", id);
   const snap = await getDoc(ref);
 
-  const current = snap.data().stock;
-
   await updateDoc(ref, {
-    stock: current + qty
+    stock: snap.data().stock + qty
   });
 
-  alert("Stock added!");
-  loadInventory();
+  alert("Stock updated!");
 };
 
 window.logout = function() {
