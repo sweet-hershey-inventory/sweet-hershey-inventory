@@ -7,22 +7,25 @@
 </head>
 <body>
 
-<div class="card">
-  <h2>Sweet Hershey</h2>
+<div class="card fadeIn">
+  <h2 class="brand">Sweet Hershey</h2>
   <p>Inventory System</p>
 
-  <input type="text" id="username" placeholder="Username">
-  <input type="password" id="password" placeholder="Password">
-  <button onclick="mainLogin()">Login</button>
+  <form id="loginForm">
+    <input type="text" id="username" placeholder="Username" required>
+    <input type="password" id="password" placeholder="Password" required>
+    <button type="submit">Login</button>
+  </form>
 
   <div id="pinSection" style="display:none;">
     <hr>
-    <p>Enter Employee PIN</p>
-    <input type="password" id="pin" placeholder="PIN">
-    <button onclick="verifyPin()">Enter</button>
+    <form id="pinForm">
+      <input type="password" id="pin" placeholder="Enter PIN" required>
+      <button type="submit">Enter</button>
+    </form>
   </div>
 
-  <p id="error" style="color:red;"></p>
+  <p id="error"></p>
 </div>
 
 <script type="module" src="firebase.js"></script>
