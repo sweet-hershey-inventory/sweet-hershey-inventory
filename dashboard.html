@@ -16,7 +16,7 @@
   <button onclick="logout()">Logout</button>
 </div>
 
-<div class="container fadeIn">
+<div class="container">
 
   <h3>Select Category</h3>
   <div id="categories" class="categoryGrid"></div>
@@ -29,16 +29,21 @@
       <div id="overallStocks"></div>
     </div>
 
-    <div id="beforeSection">
-      <h4>Before Shift Inventory</h4>
-      <div id="beforeList"></div>
-      <button onclick="saveBefore()">Save Before Shift</button>
+    <h4>Before Shift Inventory</h4>
+    <div id="beforeList"></div>
+
+    <div class="bottomSave">
+      <button onclick="confirmBefore()">Save Before Shift</button>
     </div>
 
     <div id="afterSection" style="display:none;">
       <h4>After Shift Inventory</h4>
       <div id="afterList"></div>
-      <button onclick="saveAfter()">Save After Shift</button>
+
+      <h4>Wasted Items</h4>
+      <div id="wasteSection"></div>
+
+      <button onclick="confirmAfter()">Complete Shift</button>
     </div>
 
   </div>
