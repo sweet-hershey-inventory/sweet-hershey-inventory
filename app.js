@@ -11,42 +11,119 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+/* ===========================
+   GLOBAL VARIABLES
+=========================== */
+
 let selectedCategory = null;
 let inventoryCache = {};
 let itemMap = {};
 let beforeSaved = false;
 
-// DASHBOARD LOAD
+/* ===========================
+   LOGIN LOGIC
+=========================== */
+
+const loginForm = document.getElementById("loginForm");
+const pinForm = document.getElementById("pinForm");
+
+if (loginForm) {
+  loginForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    if (username === "staff" && password === "hershey123") {
+      localStorage.setItem("systemRole", "staff");
+      document.getElementById("pinSection").style.display = "block";
+    }
+    else if (username === "admin" && password === "SWEEThershey2025") {
+      localStorage.setItem("systemRole", "admin");
+      document.getElementById("pinSection").style.display = "block";
+    }
+    else {
+      document.getElementById("error").innerText = "Invalid username or password";
+    }
+  });
+}
+
+if (pinForm) {
+  pinForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const enteredPin = document.getElementById("pin").value;
+    const systemRole = localStorage.getItem("systemRole");
+
+    const snapshot = await getDocs(collection(db, "employees"));
+    let found = false;
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+
+      if (data.pin === enteredPin) {
+
+        if (systemRole === "staff" && data.role !== "employee") {
+          document.getElementById("error").innerText = "Staff cannot use admin PIN";
+          return;
+        }
+
+        if (systemRole === "admin" && data.role !== "admin") {
+          document.getElementById("error").innerText = "Admin PIN required";
+          return;
+        }
+
+        found = true;
+        localStorage.setItem("employeeName", data.name);
+        localStorage.setItem("role", data.role);
+      }
+    });
+
+    if (found) {
+      window.location.href = "dashboard.html";
+    } else {
+      document.getElementById("error").innerText = "Invalid PIN";
+    }
+  });
+}
+
+/* ===========================
+   DASHBOARD LOGIC
+=========================== */
+
 window.onload = async function () {
+
   if (!window.location.pathname.includes("dashboard")) return;
 
-  employeeName.innerText = localStorage.getItem("employeeName");
+  document.getElementById("employeeName").innerText =
+    localStorage.getItem("employeeName");
 
   startClock();
   loadCategories();
   loadLastDuty();
 };
 
-// CLOCK
+/* CLOCK */
 function startClock() {
   setInterval(() => {
     const now = new Date();
-    liveClock.innerText =
+    document.getElementById("liveClock").innerText =
       now.toLocaleDateString() + " " + now.toLocaleTimeString();
   }, 1000);
 }
 
-// LAST DUTY
+/* LAST DUTY */
 async function loadLastDuty() {
   const q = query(collection(db, "shifts"), orderBy("timestamp", "desc"), limit(1));
   const snapshot = await getDocs(q);
 
   snapshot.forEach(docSnap => {
-    lastDuty.innerText = "Last Duty: " + docSnap.data().employee;
+    document.getElementById("lastDuty").innerText =
+      "Last Duty: " + docSnap.data().employee;
   });
 }
 
-// LOAD CATEGORIES
+/* LOAD CATEGORIES */
 async function loadCategories() {
   const snapshot = await getDocs(collection(db, "inventory"));
   const set = new Set();
@@ -55,10 +132,11 @@ async function loadCategories() {
     set.add(doc.data().category);
   });
 
-  categories.innerHTML = "";
+  const container = document.getElementById("categories");
+  container.innerHTML = "";
 
   set.forEach(cat => {
-    categories.innerHTML += `
+    container.innerHTML += `
       <div class="categoryBtn" onclick="selectCategory('${cat}')">
         ${cat.toUpperCase()}
       </div>
@@ -66,24 +144,29 @@ async function loadCategories() {
   });
 }
 
-// SELECT CATEGORY
+/* SELECT CATEGORY */
 window.selectCategory = async function(cat) {
+
   selectedCategory = cat;
   beforeSaved = false;
 
-  inventorySection.style.display = "block";
-  afterSection.style.display = "none";
-  wasteSection.style.display = "none";
+  document.getElementById("inventorySection").style.display = "block";
+  document.getElementById("afterSection").style.display = "none";
+  document.getElementById("wasteSection").style.display = "none";
 
-  categoryTitle.innerText = cat.toUpperCase();
+  document.getElementById("categoryTitle").innerText = cat.toUpperCase();
 
   const snapshot = await getDocs(collection(db, "inventory"));
+
+  const beforeList = document.getElementById("beforeList");
+  const overallStocks = document.getElementById("overallStocks");
 
   beforeList.innerHTML = "";
   overallStocks.innerHTML = "";
 
   snapshot.forEach(docSnap => {
     const data = docSnap.data();
+
     if (data.category === cat) {
 
       itemMap[docSnap.id] = data.name;
@@ -113,22 +196,19 @@ window.selectCategory = async function(cat) {
   });
 };
 
-// UPDATE BEFORE
 window.updateBefore = function(id, val) {
   inventoryCache[id].before = Number(val);
 };
 
-// CONFIRM BEFORE
 window.confirmBefore = function() {
   if (!confirm("Proceed? This cannot be edited.")) return;
-
   beforeSaved = true;
-  afterSection.style.display = "block";
+  document.getElementById("afterSection").style.display = "block";
   loadAfter();
 };
 
-// LOAD AFTER
 function loadAfter() {
+  const afterList = document.getElementById("afterList");
   afterList.innerHTML = "";
 
   for (let id in inventoryCache) {
@@ -143,101 +223,8 @@ function loadAfter() {
   }
 }
 
-// UPDATE AFTER
 window.updateAfter = function(id, val) {
   inventoryCache[id].after = Number(val);
-};
-
-// TOGGLE WASTE
-window.toggleWaste = function() {
-  wasteSection.style.display =
-    wasteSection.style.display === "none" ? "block" : "none";
-
-  loadWaste();
-};
-
-// LOAD WASTE
-function loadWaste() {
-  wasteList.innerHTML = "";
-
-  for (let id in inventoryCache) {
-    wasteList.innerHTML += `
-      <div class="itemCard">
-        ${itemMap[id]}
-        <input type="number" placeholder="Waste Qty"
-          onchange="updateWasteQty('${id}', this.value)">
-        <input type="text" placeholder="Reason"
-          onchange="updateWasteReason('${id}', this.value)">
-      </div>
-    `;
-  }
-}
-
-// UPDATE WASTE
-window.updateWasteQty = function(id, val) {
-  inventoryCache[id].wasteQty = Number(val);
-};
-
-window.updateWasteReason = function(id, val) {
-  inventoryCache[id].wasteReason = val;
-};
-
-// COMPLETE SHIFT
-window.confirmAfter = async function() {
-  if (!beforeSaved) {
-    alert("Complete Before Shift first.");
-    return;
-  }
-
-  if (!confirm("Complete shift? This cannot be undone.")) return;
-
-  const employee = localStorage.getItem("employeeName");
-
-  let beforeData = {};
-  let afterData = {};
-  let summaryHTML = "";
-
-  for (let id in inventoryCache) {
-
-    beforeData[itemMap[id]] = inventoryCache[id].before;
-    afterData[itemMap[id]] = inventoryCache[id].after;
-
-    await updateDoc(doc(db, "inventory", id), {
-      stock: inventoryCache[id].after
-    });
-
-    if (inventoryCache[id].wasteQty > 0) {
-      await addDoc(collection(db, "wastes"), {
-        employee,
-        itemName: itemMap[id],
-        qty: inventoryCache[id].wasteQty,
-        reason: inventoryCache[id].wasteReason,
-        timestamp: serverTimestamp()
-      });
-    }
-
-    summaryHTML += `
-      <div>
-        ${itemMap[id]}:
-        Before ${inventoryCache[id].before} →
-        After ${inventoryCache[id].after}
-      </div>
-    `;
-  }
-
-  await addDoc(collection(db, "shifts"), {
-    employee,
-    category: selectedCategory,
-    before: beforeData,
-    after: afterData,
-    timestamp: serverTimestamp()
-  });
-
-  shiftSummary.style.display = "block";
-  summaryContent.innerHTML = summaryHTML;
-
-  alert("Shift Completed!");
-  loadLastDuty();
 };
 
 window.logout = function() {
