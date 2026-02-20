@@ -11,119 +11,51 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* ===========================
-   GLOBAL VARIABLES
-=========================== */
-
 let selectedCategory = null;
 let inventoryCache = {};
 let itemMap = {};
 let beforeSaved = false;
 
-/* ===========================
-   LOGIN LOGIC
-=========================== */
-
-const loginForm = document.getElementById("loginForm");
-const pinForm = document.getElementById("pinForm");
-
-if (loginForm) {
-  loginForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-
-    if (username === "staff" && password === "hershey123") {
-      localStorage.setItem("systemRole", "staff");
-      document.getElementById("pinSection").style.display = "block";
-    }
-    else if (username === "admin" && password === "SWEEThershey2025") {
-      localStorage.setItem("systemRole", "admin");
-      document.getElementById("pinSection").style.display = "block";
-    }
-    else {
-      document.getElementById("error").innerText = "Invalid username or password";
-    }
-  });
-}
-
-if (pinForm) {
-  pinForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const enteredPin = document.getElementById("pin").value;
-    const systemRole = localStorage.getItem("systemRole");
-
-    const snapshot = await getDocs(collection(db, "employees"));
-    let found = false;
-
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-
-      if (data.pin === enteredPin) {
-
-        if (systemRole === "staff" && data.role !== "employee") {
-          document.getElementById("error").innerText = "Staff cannot use admin PIN";
-          return;
-        }
-
-        if (systemRole === "admin" && data.role !== "admin") {
-          document.getElementById("error").innerText = "Admin PIN required";
-          return;
-        }
-
-        found = true;
-        localStorage.setItem("employeeName", data.name);
-        localStorage.setItem("role", data.role);
-      }
-    });
-
-    if (found) {
-      window.location.href = "dashboard.html";
-    } else {
-      document.getElementById("error").innerText = "Invalid PIN";
-    }
-  });
-}
-
-/* ===========================
-   DASHBOARD LOGIC
-=========================== */
-
+/* =====================
+   DASHBOARD INIT
+===================== */
 window.onload = async function () {
 
   if (!window.location.pathname.includes("dashboard")) return;
 
-  document.getElementById("employeeName").innerText =
-    localStorage.getItem("employeeName");
+  employeeName.innerText = localStorage.getItem("employeeName");
 
   startClock();
   loadCategories();
   loadLastDuty();
 };
 
-/* CLOCK */
+/* =====================
+   CLOCK
+===================== */
 function startClock() {
   setInterval(() => {
     const now = new Date();
-    document.getElementById("liveClock").innerText =
+    liveClock.innerText =
       now.toLocaleDateString() + " " + now.toLocaleTimeString();
   }, 1000);
 }
 
-/* LAST DUTY */
+/* =====================
+   LAST DUTY
+===================== */
 async function loadLastDuty() {
   const q = query(collection(db, "shifts"), orderBy("timestamp", "desc"), limit(1));
   const snapshot = await getDocs(q);
 
   snapshot.forEach(docSnap => {
-    document.getElementById("lastDuty").innerText =
-      "Last Duty: " + docSnap.data().employee;
+    lastDuty.innerText = "Last Duty: " + docSnap.data().employee;
   });
 }
 
-/* LOAD CATEGORIES */
+/* =====================
+   LOAD CATEGORIES
+===================== */
 async function loadCategories() {
   const snapshot = await getDocs(collection(db, "inventory"));
   const set = new Set();
@@ -132,11 +64,10 @@ async function loadCategories() {
     set.add(doc.data().category);
   });
 
-  const container = document.getElementById("categories");
-  container.innerHTML = "";
+  categories.innerHTML = "";
 
   set.forEach(cat => {
-    container.innerHTML += `
+    categories.innerHTML += `
       <div class="categoryBtn" onclick="selectCategory('${cat}')">
         ${cat.toUpperCase()}
       </div>
@@ -144,27 +75,28 @@ async function loadCategories() {
   });
 }
 
-/* SELECT CATEGORY */
+/* =====================
+   SELECT CATEGORY
+===================== */
 window.selectCategory = async function(cat) {
 
   selectedCategory = cat;
   beforeSaved = false;
 
-  document.getElementById("inventorySection").style.display = "block";
-  document.getElementById("afterSection").style.display = "none";
-  document.getElementById("wasteSection").style.display = "none";
+  inventorySection.style.display = "block";
+  afterSection.style.display = "none";
+  wasteSection.style.display = "none";
+  addStockSection.style.display = "none";
 
-  document.getElementById("categoryTitle").innerText = cat.toUpperCase();
+  categoryTitle.innerText = cat.toUpperCase();
 
   const snapshot = await getDocs(collection(db, "inventory"));
-
-  const beforeList = document.getElementById("beforeList");
-  const overallStocks = document.getElementById("overallStocks");
 
   beforeList.innerHTML = "";
   overallStocks.innerHTML = "";
 
   snapshot.forEach(docSnap => {
+
     const data = docSnap.data();
 
     if (data.category === cat) {
@@ -176,7 +108,8 @@ window.selectCategory = async function(cat) {
           before: data.stock,
           after: data.stock,
           wasteQty: 0,
-          wasteReason: ""
+          wasteReason: "",
+          addQty: 0
         };
       }
 
@@ -196,19 +129,30 @@ window.selectCategory = async function(cat) {
   });
 };
 
-window.updateBefore = function(id, val) {
-  inventoryCache[id].before = Number(val);
-};
+/* =====================
+   UPDATE CACHE
+===================== */
+window.updateBefore = (id, val) => inventoryCache[id].before = Number(val);
+window.updateAfter = (id, val) => inventoryCache[id].after = Number(val);
+window.updateWasteQty = (id, val) => inventoryCache[id].wasteQty = Number(val);
+window.updateWasteReason = (id, val) => inventoryCache[id].wasteReason = val;
+window.updateAddQty = (id, val) => inventoryCache[id].addQty = Number(val);
 
+/* =====================
+   SAVE BEFORE
+===================== */
 window.confirmBefore = function() {
-  if (!confirm("Proceed? This cannot be edited.")) return;
+  if (!confirm("Proceed? Cannot edit later.")) return;
+
   beforeSaved = true;
-  document.getElementById("afterSection").style.display = "block";
+  afterSection.style.display = "block";
   loadAfter();
 };
 
+/* =====================
+   LOAD AFTER
+===================== */
 function loadAfter() {
-  const afterList = document.getElementById("afterList");
   afterList.innerHTML = "";
 
   for (let id in inventoryCache) {
@@ -223,10 +167,131 @@ function loadAfter() {
   }
 }
 
-window.updateAfter = function(id, val) {
-  inventoryCache[id].after = Number(val);
+/* =====================
+   WASTE
+===================== */
+window.toggleWaste = function() {
+  wasteSection.style.display =
+    wasteSection.style.display === "none" ? "block" : "none";
+
+  wasteList.innerHTML = "";
+
+  for (let id in inventoryCache) {
+    wasteList.innerHTML += `
+      <div class="itemCard">
+        ${itemMap[id]}
+        <input type="number" placeholder="Waste Qty"
+          onchange="updateWasteQty('${id}', this.value)">
+        <input type="text" placeholder="Reason"
+          onchange="updateWasteReason('${id}', this.value)">
+      </div>
+    `;
+  }
 };
 
+/* =====================
+   ADD STOCK
+===================== */
+window.toggleAddStock = function() {
+  addStockSection.style.display =
+    addStockSection.style.display === "none" ? "block" : "none";
+
+  addStockList.innerHTML = "";
+
+  for (let id in inventoryCache) {
+    addStockList.innerHTML += `
+      <div class="itemCard">
+        ${itemMap[id]}
+        <input type="number" placeholder="Add Qty"
+          onchange="updateAddQty('${id}', this.value)">
+      </div>
+    `;
+  }
+};
+
+/* =====================
+   COMPLETE SHIFT
+===================== */
+window.completeShift = async function() {
+
+  if (!beforeSaved) {
+    alert("Complete Before Shift first.");
+    return;
+  }
+
+  if (!confirm("Complete shift? Cannot undo.")) return;
+
+  const employee = localStorage.getItem("employeeName");
+
+  let beforeData = {};
+  let afterData = {};
+  let summaryHTML = "";
+
+  for (let id in inventoryCache) {
+
+    const itemName = itemMap[id];
+
+    beforeData[itemName] = inventoryCache[id].before;
+    afterData[itemName] = inventoryCache[id].after;
+
+    // UPDATE STOCK (After + Add - Waste)
+    const finalStock =
+      inventoryCache[id].after +
+      (inventoryCache[id].addQty || 0) -
+      (inventoryCache[id].wasteQty || 0);
+
+    await updateDoc(doc(db, "inventory", id), {
+      stock: finalStock
+    });
+
+    // LOG ADD STOCK
+    if (inventoryCache[id].addQty > 0) {
+      await addDoc(collection(db, "addedStocks"), {
+        employee,
+        itemName,
+        qty: inventoryCache[id].addQty,
+        timestamp: serverTimestamp()
+      });
+    }
+
+    // LOG WASTE
+    if (inventoryCache[id].wasteQty > 0) {
+      await addDoc(collection(db, "wastes"), {
+        employee,
+        itemName,
+        qty: inventoryCache[id].wasteQty,
+        reason: inventoryCache[id].wasteReason,
+        timestamp: serverTimestamp()
+      });
+    }
+
+    summaryHTML += `
+      <div>
+        ${itemName}:
+        Before ${inventoryCache[id].before} →
+        After ${inventoryCache[id].after}
+      </div>
+    `;
+  }
+
+  await addDoc(collection(db, "shifts"), {
+    employee,
+    category: selectedCategory,
+    before: beforeData,
+    after: afterData,
+    timestamp: serverTimestamp()
+  });
+
+  shiftSummary.style.display = "block";
+  summaryContent.innerHTML = summaryHTML;
+
+  alert("Shift Completed!");
+  loadLastDuty();
+};
+
+/* =====================
+   LOGOUT
+===================== */
 window.logout = function() {
   localStorage.clear();
   window.location.href = "index.html";
