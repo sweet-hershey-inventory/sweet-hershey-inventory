@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard</title>
+  <title>Sweet Hershey Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -18,40 +18,38 @@
 
 <div class="container">
 
-  <h3>Select Category</h3>
-  <div id="categories" class="categoryGrid"></div>
+  <div id="categoryContainer">
+    <h3>Select Category</h3>
+    <div id="categories" class="categoryGrid"></div>
+  </div>
 
   <div id="inventorySection" style="display:none;">
-
     <h3 id="categoryTitle"></h3>
 
     <div id="overallStocks"></div>
 
-    <!-- BEFORE -->
     <div id="beforeSection">
       <h4>Before Shift Inventory</h4>
       <div id="beforeList"></div>
       <button id="saveBeforeBtn">Save Before Shift</button>
     </div>
 
-    <!-- AFTER -->
     <div id="afterSection" style="display:none;">
       <h4>After Shift Inventory</h4>
       <div id="afterList"></div>
 
-      <button id="toggleWasteBtn">Waste (Optional)</button>
-      <button id="toggleAddStockBtn">Add Stock (Optional)</button>
+      <button id="toggleWasteBtn">Waste</button>
+      <button id="toggleAddBtn">Add Stock</button>
 
       <div id="wasteSection" style="display:none;"></div>
-      <div id="addStockSection" style="display:none;"></div>
+      <div id="addSection" style="display:none;"></div>
 
       <button id="completeShiftBtn">Complete Shift</button>
     </div>
-
   </div>
 
   <div id="previewSection" style="display:none;">
-    <h3>Shift Preview</h3>
+    <h3>Shift Summary</h3>
     <div id="previewContent"></div>
   </div>
 
