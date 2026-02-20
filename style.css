@@ -1,8 +1,12 @@
 body {
   font-family: Arial;
-  background: #f4f0ec;
   margin: 0;
-  padding: 0;
+  background: #ffffff;
+  color: #333;
+}
+
+.brand {
+  color: #e63946;
 }
 
 .card {
@@ -10,18 +14,18 @@ body {
   max-width: 400px;
   margin: 80px auto;
   background: white;
-  padding: 20px;
+  padding: 25px;
   border-radius: 15px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
   text-align: center;
 }
 
-input {
+input, select {
   width: 100%;
   padding: 10px;
-  margin: 10px 0;
+  margin: 8px 0;
   border-radius: 8px;
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
 }
 
 button {
@@ -29,12 +33,63 @@ button {
   padding: 10px;
   border-radius: 8px;
   border: none;
-  background: #6b3e26;
+  background: #ff6b00;
   color: white;
   font-weight: bold;
   cursor: pointer;
+  transition: 0.2s;
 }
 
 button:hover {
-  opacity: 0.9;
+  background: #e63946;
+}
+
+.topbar {
+  background: #ff6b00;
+  color: white;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.container {
+  padding: 15px;
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.categoryBtn {
+  padding: 15px;
+  background: #ffbe0b;
+  border-radius: 10px;
+  text-align: center;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.categoryBtn:hover {
+  background: #ff6b00;
+  color: white;
+}
+
+.itemCard {
+  border: 1px solid #eee;
+  padding: 10px;
+  margin: 8px 0;
+  border-radius: 10px;
+}
+
+.fadeIn {
+  animation: fade 0.4s ease-in;
+}
+
+@keyframes fade {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
