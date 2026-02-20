@@ -12,9 +12,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 let selectedCategory = null;
-let inventoryCache = {};
-let itemMap = {};
-let beforeLocked = false;
+let shiftData = {}; 
+let inventoryDocs = {};
+let shiftCompleted = false;
 
 window.addEventListener("DOMContentLoaded", async () => {
 
@@ -26,11 +26,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   loadCategories();
   loadLastDuty();
 
-  logoutBtn.addEventListener("click", logout);
-  saveBeforeBtn.addEventListener("click", saveBefore);
-  toggleWasteBtn.addEventListener("click", toggleWaste);
-  toggleAddStockBtn.addEventListener("click", toggleAddStock);
-  completeShiftBtn.addEventListener("click", completeShift);
+  logoutBtn.onclick = logout;
+  saveBeforeBtn.onclick = saveBefore;
+  toggleWasteBtn.onclick = toggleWaste;
+  toggleAddStockBtn.onclick = toggleAddStock;
+  completeShiftBtn.onclick = completeShift;
 });
 
 /* CLOCK */
@@ -56,8 +56,9 @@ async function loadCategories() {
   const snapshot = await getDocs(collection(db, "inventory"));
   const set = new Set();
 
-  snapshot.forEach(doc => {
-    set.add(doc.data().category);
+  snapshot.forEach(docSnap => {
+    set.add(docSnap.data().category);
+    inventoryDocs[docSnap.id] = docSnap.data();
   });
 
   categories.innerHTML = "";
@@ -72,128 +73,113 @@ async function loadCategories() {
 }
 
 /* SELECT CATEGORY */
-async function selectCategory(cat) {
+function selectCategory(cat) {
 
   selectedCategory = cat;
-
   inventorySection.style.display = "block";
   categoryTitle.innerText = cat.toUpperCase();
 
+  beforeSection.style.display = shiftData[cat]?.locked ? "none" : "block";
+  afterSection.style.display = shiftData[cat]?.locked ? "block" : "none";
+
+  renderCategory();
+}
+
+function renderCategory() {
+
   beforeList.innerHTML = "";
   afterList.innerHTML = "";
+  wasteSection.innerHTML = "";
+  addStockSection.innerHTML = "";
   overallStocks.innerHTML = "";
-  wasteSection.style.display = "none";
-  addStockSection.style.display = "none";
 
-  const snapshot = await getDocs(collection(db, "inventory"));
+  Object.entries(inventoryDocs).forEach(([id, data]) => {
 
-  snapshot.forEach(docSnap => {
+    if (data.category !== selectedCategory) return;
 
-    const data = docSnap.data();
+    if (!shiftData[selectedCategory]) {
+      shiftData[selectedCategory] = { items: {}, locked: false };
+    }
 
-    if (data.category === cat) {
+    if (!shiftData[selectedCategory].items[id]) {
+      shiftData[selectedCategory].items[id] = {
+        before: data.stock,
+        after: data.stock,
+        wasteQty: 0,
+        wasteReason: "",
+        addQty: 0
+      };
+    }
 
-      itemMap[docSnap.id] = data.name;
+    const item = shiftData[selectedCategory].items[id];
 
-      if (!inventoryCache[docSnap.id]) {
-        inventoryCache[docSnap.id] = {
-          before: data.stock,
-          after: data.stock,
-          wasteQty: 0,
-          wasteReason: "",
-          addQty: 0
-        };
-      }
+    overallStocks.innerHTML += `
+      <div>${data.name}: <strong>${data.stock}</strong></div>
+    `;
 
-      overallStocks.innerHTML += `
-        <div>${data.name}: <strong>${data.stock}</strong></div>
-      `;
-
+    if (!shiftData[selectedCategory].locked) {
       beforeList.innerHTML += `
         <div class="itemCard">
           ${data.name}
-          <input type="number"
-            value="${inventoryCache[docSnap.id].before}"
-            onchange="inventoryCache['${docSnap.id}'].before = Number(this.value)">
+          <input type="number" value="${item.before}"
+          onchange="shiftData['${selectedCategory}'].items['${id}'].before = Number(this.value)">
         </div>
       `;
     }
-  });
 
-  if (beforeLocked) loadAfterSection();
+    afterList.innerHTML += `
+      <div class="itemCard">
+        ${data.name}
+        <input type="number" value="${item.after}"
+        onchange="shiftData['${selectedCategory}'].items['${id}'].after = Number(this.value)">
+      </div>
+    `;
+  });
 }
 
 /* SAVE BEFORE */
 function saveBefore() {
-  if (!confirm("Proceed? This cannot be edited.")) return;
+  if (!confirm("Proceed? Cannot edit later.")) return;
 
-  beforeLocked = true;
+  shiftData[selectedCategory].locked = true;
+
   beforeSection.style.display = "none";
   afterSection.style.display = "block";
-  loadAfterSection();
 }
 
-/* LOAD AFTER */
-function loadAfterSection() {
-
-  afterList.innerHTML = "";
-
-  Object.keys(inventoryCache).forEach(id => {
-
-    if (!itemMap[id]) return;
-
-    afterList.innerHTML += `
-      <div class="itemCard">
-        ${itemMap[id]}
-        <input type="number"
-          value="${inventoryCache[id].after}"
-          onchange="inventoryCache['${id}'].after = Number(this.value)">
-      </div>
-    `;
-  });
-}
-
-/* WASTE PER CATEGORY */
+/* WASTE */
 function toggleWaste() {
-
   wasteSection.style.display =
     wasteSection.style.display === "none" ? "block" : "none";
 
-  wasteList.innerHTML = "";
+  wasteSection.innerHTML = "";
 
-  Object.keys(inventoryCache).forEach(id => {
-
-    if (!itemMap[id]) return;
-
-    wasteList.innerHTML += `
+  Object.entries(shiftData[selectedCategory].items).forEach(([id, item]) => {
+    wasteSection.innerHTML += `
       <div class="itemCard">
-        ${itemMap[id]}
+        ${inventoryDocs[id].name}
         <input type="number" placeholder="Qty"
-          onchange="inventoryCache['${id}'].wasteQty = Number(this.value)">
+        onchange="shiftData['${selectedCategory}'].items['${id}'].wasteQty = Number(this.value)">
         <input type="text" placeholder="Reason"
-          onchange="inventoryCache['${id}'].wasteReason = this.value">
+        onchange="shiftData['${selectedCategory}'].items['${id}'].wasteReason = this.value">
       </div>
     `;
   });
 }
 
-/* ADD STOCK PER CATEGORY */
+/* ADD STOCK */
 function toggleAddStock() {
-
   addStockSection.style.display =
     addStockSection.style.display === "none" ? "block" : "none";
 
-  addStockList.innerHTML = "";
+  addStockSection.innerHTML = "";
 
-  Object.keys(inventoryCache).forEach(id => {
-
-    if (!itemMap[id]) return;
-
-    addStockList.innerHTML += `
+  Object.entries(shiftData[selectedCategory].items).forEach(([id, item]) => {
+    addStockSection.innerHTML += `
       <div class="itemCard">
-        ${itemMap[id]}
+        ${inventoryDocs[id].name}
         <input type="number" placeholder="Qty"
-          onchange="inventoryCache['${id}'].addQty = Number(this.value)">
+        onchange="shiftData['${selectedCategory}'].items['${id}'].addQty = Number(this.value)">
       </div>
     `;
   });
@@ -202,8 +188,8 @@ function toggleAddStock() {
 /* COMPLETE SHIFT */
 async function completeShift() {
 
-  if (!beforeLocked) {
-    alert("Please Save Before Shift first.");
+  if (!shiftData[selectedCategory]?.locked) {
+    alert("Save Before Shift first.");
     return;
   }
 
@@ -211,62 +197,41 @@ async function completeShift() {
 
   const employee = localStorage.getItem("employeeName");
 
-  let beforeData = {};
-  let afterData = {};
-  let addedData = {};
-  let wastedData = {};
-  let summaryHTML = "";
+  let previewHTML = `<h4>${selectedCategory.toUpperCase()}</h4>`;
 
-  for (let id in inventoryCache) {
+  for (let [id, item] of Object.entries(shiftData[selectedCategory].items)) {
 
-    if (!itemMap[id]) continue;
-
-    const itemName = itemMap[id];
-
-    const beforeVal = inventoryCache[id].before;
-    const afterVal = inventoryCache[id].after;
-    const addVal = inventoryCache[id].addQty || 0;
-    const wasteVal = inventoryCache[id].wasteQty || 0;
-
-    const finalStock = afterVal + addVal - wasteVal;
-
-    beforeData[itemName] = beforeVal;
-    afterData[itemName] = afterVal;
-    addedData[itemName] = addVal;
-    wastedData[itemName] = wasteVal;
+    const name = inventoryDocs[id].name;
+    const finalStock = item.after + item.addQty - item.wasteQty;
 
     await updateDoc(doc(db, "inventory", id), {
       stock: finalStock
     });
 
-    if (addVal > 0) {
+    if (item.addQty > 0) {
       await addDoc(collection(db, "addedStocks"), {
         employee,
         category: selectedCategory,
-        itemName,
-        qty: addVal,
+        itemName: name,
+        qty: item.addQty,
         timestamp: serverTimestamp()
       });
     }
 
-    if (wasteVal > 0) {
+    if (item.wasteQty > 0) {
       await addDoc(collection(db, "wastes"), {
         employee,
         category: selectedCategory,
-        itemName,
-        qty: wasteVal,
-        reason: inventoryCache[id].wasteReason,
+        itemName: name,
+        qty: item.wasteQty,
+        reason: item.wasteReason,
         timestamp: serverTimestamp()
       });
     }
 
-    summaryHTML += `
+    previewHTML += `
       <div>
-        ${itemName} → Before: ${beforeVal},
-        After: ${afterVal},
-        Added: ${addVal},
-        Wasted: ${wasteVal},
-        Final: ${finalStock}
+        ${name} → Final: ${finalStock}
       </div>
     `;
   }
@@ -274,17 +239,15 @@ async function completeShift() {
   await addDoc(collection(db, "shifts"), {
     employee,
     category: selectedCategory,
-    before: beforeData,
-    after: afterData,
-    added: addedData,
-    wasted: wastedData,
+    data: shiftData[selectedCategory].items,
     timestamp: serverTimestamp()
   });
 
   alert("You did a great work! Don't forget to rest and say thank you!");
 
-  shiftSummary.style.display = "block";
-  summaryContent.innerHTML = summaryHTML;
+  inventorySection.style.display = "none";
+  previewSection.style.display = "block";
+  previewContent.innerHTML = previewHTML;
 
   loadLastDuty();
 }
