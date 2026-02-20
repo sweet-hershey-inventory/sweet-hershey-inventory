@@ -41,23 +41,33 @@
       <div id="afterList"></div>
 
       <div class="bottomSave">
-        <button onclick="confirmAfter()">Complete Shift</button>
+        <button onclick="completeShift()">Complete Shift</button>
       </div>
 
       <div class="bottomSave">
         <button onclick="toggleWaste()">Add Waste (Optional)</button>
       </div>
 
+      <div class="bottomSave">
+        <button onclick="toggleAddStock()">Add Stock (Optional)</button>
+      </div>
+
       <div id="wasteSection" style="display:none;">
         <h4>Waste Entry</h4>
         <div id="wasteList"></div>
       </div>
+
+      <div id="addStockSection" style="display:none;">
+        <h4>Add Stock Entry</h4>
+        <div id="addStockList"></div>
+      </div>
+
     </div>
 
   </div>
 
   <div id="shiftSummary" style="display:none;">
-    <h3>Last Shift Summary</h3>
+    <h3>Shift Summary</h3>
     <div id="summaryContent"></div>
   </div>
 
