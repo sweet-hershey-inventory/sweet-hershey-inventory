@@ -9,7 +9,8 @@
 
 <div class="topbar">
   <div>
-    <strong id="employeeName"></strong>
+    <div id="employeeName"></div>
+    <div id="liveClock"></div>
     <div id="lastDuty"></div>
   </div>
   <button onclick="logout()">Logout</button>
@@ -20,9 +21,15 @@
   <h3>Select Category</h3>
   <div id="categories" class="categoryGrid"></div>
 
-  <div id="itemsSection" style="display:none;">
-    <h3 id="selectedCategoryTitle"></h3>
-    <div id="itemsList"></div>
+  <div id="inventorySection" style="display:none;">
+    <h3 id="categoryTitle"></h3>
+
+    <h4>Before Shift Inventory</h4>
+    <div id="beforeList"></div>
+
+    <h4>After Shift Inventory</h4>
+    <div id="afterList"></div>
+
     <button onclick="saveShift()">Save Inventory</button>
   </div>
 
@@ -31,7 +38,7 @@
     <h3>Admin - Add Stock</h3>
     <select id="adminItem"></select>
     <input type="number" id="adminQty" placeholder="Quantity">
-    <button onclick="addStock()">Add</button>
+    <button onclick="addStock()">Add Stock</button>
   </div>
 
 </div>
