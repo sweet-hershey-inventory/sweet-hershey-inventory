@@ -11,9 +11,17 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-let inventory = {};
+/* ===============================
+   GLOBAL STATE
+================================ */
+
+let inventory = [];
 let shiftState = {};
 let currentCategory = null;
+
+/* ===============================
+   INIT
+================================ */
 
 window.addEventListener("DOMContentLoaded", async () => {
 
@@ -22,8 +30,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   employeeName.innerText = localStorage.getItem("employeeName");
 
   startClock();
-  await loadInventory();
-  loadCategories();
+  await loadInventory();   // WAIT properly
+  buildCategories();
   loadLastDuty();
 
   logoutBtn.onclick = logout;
@@ -33,39 +41,58 @@ window.addEventListener("DOMContentLoaded", async () => {
   completeShiftBtn.onclick = completeShift;
 });
 
-/* CLOCK */
-function startClock() {
-  setInterval(() => {
-    const now = new Date();
-    liveClock.innerText =
-      now.toLocaleDateString() + " " + now.toLocaleTimeString();
-  }, 1000);
-}
+/* ===============================
+   LOAD INVENTORY (FIXED)
+================================ */
 
-/* LOAD INVENTORY ONCE */
 async function loadInventory() {
+
   const snap = await getDocs(collection(db, "inventory"));
 
-  snap.forEach(d => {
-    inventory[d.id] = { ...d.data(), id: d.id };
+  inventory = [];
+
+  snap.forEach(docSnap => {
+    const data = docSnap.data();
+
+    if (!data.category || !data.name) return;
+
+    inventory.push({
+      id: docSnap.id,
+      name: data.name,
+      category: data.category.trim().toLowerCase(),
+      stock: Number(data.stock)
+    });
   });
+
+  console.log("Inventory loaded:", inventory);
 }
 
-/* LOAD CATEGORIES */
-function loadCategories() {
-  const set = new Set(Object.values(inventory).map(i => i.category));
+/* ===============================
+   BUILD CATEGORIES
+================================ */
+
+function buildCategories() {
+
+  const categorySet = new Set(inventory.map(i => i.category));
+
   categories.innerHTML = "";
 
-  set.forEach(cat => {
+  categorySet.forEach(cat => {
+
     const btn = document.createElement("div");
     btn.className = "categoryBtn";
     btn.innerText = cat.toUpperCase();
+
     btn.onclick = () => openCategory(cat);
+
     categories.appendChild(btn);
   });
 }
 
-/* OPEN CATEGORY */
+/* ===============================
+   OPEN CATEGORY
+================================ */
+
 function openCategory(cat) {
 
   currentCategory = cat;
@@ -83,8 +110,13 @@ function openCategory(cat) {
   renderCategory();
 }
 
-/* RENDER CATEGORY */
+/* ===============================
+   RENDER CATEGORY (FIXED SAFE)
+================================ */
+
 function renderCategory() {
+
+  const state = shiftState[currentCategory];
 
   beforeList.innerHTML = "";
   afterList.innerHTML = "";
@@ -92,11 +124,14 @@ function renderCategory() {
   addSection.innerHTML = "";
   overallStocks.innerHTML = "";
 
-  const state = shiftState[currentCategory];
+  const filteredItems = inventory.filter(i => i.category === currentCategory);
 
-  Object.values(inventory).forEach(item => {
+  if (filteredItems.length === 0) {
+    beforeList.innerHTML = "<p>No items found in this category.</p>";
+    return;
+  }
 
-    if (item.category !== currentCategory) return;
+  filteredItems.forEach(item => {
 
     if (!state.items[item.id]) {
       state.items[item.id] = {
@@ -115,15 +150,18 @@ function renderCategory() {
     `;
 
     if (!state.locked) {
-      const input = document.createElement("input");
-      input.type = "number";
-      input.value = s.before;
-      input.oninput = e => s.before = Number(e.target.value);
+
+      const beforeInput = document.createElement("input");
+      beforeInput.type = "number";
+      beforeInput.value = s.before;
+      beforeInput.oninput = e => {
+        s.before = Number(e.target.value);
+      };
 
       const div = document.createElement("div");
       div.className = "itemCard";
       div.innerText = item.name;
-      div.appendChild(input);
+      div.appendChild(beforeInput);
 
       beforeList.appendChild(div);
     }
@@ -131,7 +169,9 @@ function renderCategory() {
     const afterInput = document.createElement("input");
     afterInput.type = "number";
     afterInput.value = s.after;
-    afterInput.oninput = e => s.after = Number(e.target.value);
+    afterInput.oninput = e => {
+      s.after = Number(e.target.value);
+    };
 
     const div2 = document.createElement("div");
     div2.className = "itemCard";
@@ -145,55 +185,74 @@ function renderCategory() {
   afterSection.style.display = state.locked ? "block" : "none";
 }
 
-/* SAVE BEFORE */
+/* ===============================
+   SAVE BEFORE
+================================ */
+
 function saveBefore() {
+
+  const state = shiftState[currentCategory];
+
   if (!confirm("Lock Before Shift? Cannot edit later.")) return;
-  shiftState[currentCategory].locked = true;
+
+  state.locked = true;
   renderCategory();
 }
 
-/* TOGGLE WASTE */
+/* ===============================
+   TOGGLE WASTE
+================================ */
+
 function toggleWaste() {
+
+  const state = shiftState[currentCategory];
+
   wasteSection.style.display =
     wasteSection.style.display === "none" ? "block" : "none";
 
   wasteSection.innerHTML = "";
 
-  const state = shiftState[currentCategory];
-
   Object.entries(state.items).forEach(([id, s]) => {
+
+    const item = inventory.find(i => i.id === id);
 
     const div = document.createElement("div");
     div.className = "itemCard";
 
     div.innerHTML = `
-      ${inventory[id].name}
+      ${item.name}
       <input type="number" placeholder="Qty"
         oninput="shiftState['${currentCategory}'].items['${id}'].waste = Number(this.value)">
       <input type="text" placeholder="Reason"
-        oninput="shiftState['${currentCategory}'].items['${id}'].wasteReason = this.value">
+        oninput="shiftState['${currentCategory}'].items['${id}'].wasteReason = this.value)">
     `;
 
     wasteSection.appendChild(div);
   });
 }
 
-/* TOGGLE ADD */
+/* ===============================
+   TOGGLE ADD STOCK
+================================ */
+
 function toggleAdd() {
+
+  const state = shiftState[currentCategory];
+
   addSection.style.display =
     addSection.style.display === "none" ? "block" : "none";
 
   addSection.innerHTML = "";
 
-  const state = shiftState[currentCategory];
-
   Object.entries(state.items).forEach(([id, s]) => {
+
+    const item = inventory.find(i => i.id === id);
 
     const div = document.createElement("div");
     div.className = "itemCard";
 
     div.innerHTML = `
-      ${inventory[id].name}
+      ${item.name}
       <input type="number" placeholder="Qty"
         oninput="shiftState['${currentCategory}'].items['${id}'].add = Number(this.value)">
     `;
@@ -202,7 +261,10 @@ function toggleAdd() {
   });
 }
 
-/* COMPLETE SHIFT */
+/* ===============================
+   COMPLETE SHIFT
+================================ */
+
 async function completeShift() {
 
   const state = shiftState[currentCategory];
@@ -228,33 +290,12 @@ async function completeShift() {
 
     previewHTML += `
       <div>
-        ${inventory[id].name}
+        ${inventory.find(i => i.id === id).name}
         → Final: ${finalStock}
         | Added: ${s.add}
         | Waste: ${s.waste}
       </div>
     `;
-
-    if (s.add > 0) {
-      await addDoc(collection(db, "addedStocks"), {
-        employee,
-        category: currentCategory,
-        itemName: inventory[id].name,
-        qty: s.add,
-        timestamp: serverTimestamp()
-      });
-    }
-
-    if (s.waste > 0) {
-      await addDoc(collection(db, "wastes"), {
-        employee,
-        category: currentCategory,
-        itemName: inventory[id].name,
-        qty: s.waste,
-        reason: s.wasteReason,
-        timestamp: serverTimestamp()
-      });
-    }
   }
 
   await addDoc(collection(db, "shifts"), {
@@ -274,7 +315,10 @@ async function completeShift() {
   loadLastDuty();
 }
 
-/* LAST DUTY */
+/* ===============================
+   LAST DUTY
+================================ */
+
 async function loadLastDuty() {
   const q = query(collection(db, "shifts"), orderBy("timestamp", "desc"), limit(1));
   const snap = await getDocs(q);
@@ -283,7 +327,10 @@ async function loadLastDuty() {
   });
 }
 
-/* LOGOUT */
+/* ===============================
+   LOGOUT
+================================ */
+
 function logout() {
   localStorage.clear();
   window.location.href = "index.html";
