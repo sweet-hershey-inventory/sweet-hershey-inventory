@@ -11,8 +11,17 @@
   <h2>Sweet Hershey</h2>
   <p>Inventory System</p>
 
-  <input type="password" id="pin" placeholder="Enter PIN">
-  <button onclick="login()">Login</button>
+  <input type="text" id="username" placeholder="Username">
+  <input type="password" id="password" placeholder="Password">
+  <button onclick="mainLogin()">Login</button>
+
+  <div id="pinSection" style="display:none;">
+    <hr>
+    <p>Enter Employee PIN</p>
+    <input type="password" id="pin" placeholder="PIN">
+    <button onclick="verifyPin()">Enter</button>
+  </div>
+
   <p id="error" style="color:red;"></p>
 </div>
 
