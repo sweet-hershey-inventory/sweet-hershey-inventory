@@ -1,11 +1,21 @@
 import { db } from "./firebase.js";
-import { collection, getDocs, query, orderBy, limit, addDoc, doc, getDoc, updateDoc, serverTimestamp } 
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  query,
+  orderBy,
+  limit,
+  doc,
+  getDoc,
+  updateDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 let systemRole = null;
 let selectedCategory = null;
 
-// LOGIN FORM
+// LOGIN
 document.getElementById("loginForm")?.addEventListener("submit", e => {
   e.preventDefault();
 
@@ -36,14 +46,13 @@ document.getElementById("pinForm")?.addEventListener("submit", async e => {
 
     if (data.pin === pin.value) {
 
-      // STRICT ROLE CHECK
       if (systemRole === "staff" && data.role !== "employee") {
-        error.innerText = "Staff cannot access admin PIN";
+        error.innerText = "Staff cannot use admin PIN";
         return;
       }
 
       if (systemRole === "admin" && data.role !== "admin") {
-        error.innerText = "Admin login required for this PIN";
+        error.innerText = "Admin login required";
         return;
       }
 
@@ -55,33 +64,58 @@ document.getElementById("pinForm")?.addEventListener("submit", async e => {
 });
 
 // DASHBOARD LOAD
-window.onload = async function() {
+window.onload = async function () {
   if (!window.location.pathname.includes("dashboard")) return;
 
   const name = localStorage.getItem("employeeName");
   const role = localStorage.getItem("role");
 
-  employeeName.innerText = name;
+  document.getElementById("employeeName").innerText = name;
 
   if (role === "admin") {
-    adminSection.style.display = "block";
+    document.getElementById("adminSection").style.display = "block";
   }
 
+  startClock();
   loadCategories();
   loadLastDuty();
+  loadAdminItems();
 };
+
+// LIVE CLOCK
+function startClock() {
+  setInterval(() => {
+    const now = new Date();
+    document.getElementById("liveClock").innerText =
+      now.toLocaleDateString() + " " + now.toLocaleTimeString();
+  }, 1000);
+}
+
+// LOAD LAST DUTY
+async function loadLastDuty() {
+  const q = query(collection(db, "shifts"), orderBy("timestamp", "desc"), limit(1));
+  const snapshot = await getDocs(q);
+
+  snapshot.forEach(docSnap => {
+    document.getElementById("lastDuty").innerText =
+      "Last Duty: " + docSnap.data().employee;
+  });
+}
 
 // LOAD CATEGORIES
 async function loadCategories() {
   const snapshot = await getDocs(collection(db, "inventory"));
-  const categories = new Set();
+  const set = new Set();
 
   snapshot.forEach(doc => {
-    categories.add(doc.data().category);
+    set.add(doc.data().category);
   });
 
-  categories.forEach(cat => {
-    categoriesDiv.innerHTML += `
+  const container = document.getElementById("categories");
+  container.innerHTML = "";
+
+  set.forEach(cat => {
+    container.innerHTML += `
       <div class="categoryBtn" onclick="selectCategory('${cat}')">
         ${cat.toUpperCase()}
       </div>
@@ -89,21 +123,32 @@ async function loadCategories() {
   });
 }
 
+// SELECT CATEGORY
 window.selectCategory = async function(cat) {
   selectedCategory = cat;
-  itemsSection.style.display = "block";
-  selectedCategoryTitle.innerText = cat.toUpperCase();
-  itemsList.innerHTML = "";
+  document.getElementById("inventorySection").style.display = "block";
+  document.getElementById("categoryTitle").innerText = cat.toUpperCase();
 
   const snapshot = await getDocs(collection(db, "inventory"));
+  const beforeDiv = document.getElementById("beforeList");
+  const afterDiv = document.getElementById("afterList");
+
+  beforeDiv.innerHTML = "";
+  afterDiv.innerHTML = "";
 
   snapshot.forEach(docSnap => {
     const data = docSnap.data();
     if (data.category === cat) {
-      itemsList.innerHTML += `
+      beforeDiv.innerHTML += `
         <div class="itemCard">
           ${data.name}
-          <input type="number" id="item_${docSnap.id}" value="${data.stock}">
+          <input type="number" id="before_${docSnap.id}" value="${data.stock}">
+        </div>
+      `;
+      afterDiv.innerHTML += `
+        <div class="itemCard">
+          ${data.name}
+          <input type="number" id="after_${docSnap.id}" value="${data.stock}">
         </div>
       `;
     }
@@ -115,32 +160,40 @@ window.saveShift = async function() {
   const snapshot = await getDocs(collection(db, "inventory"));
   const employee = localStorage.getItem("employeeName");
 
-  let shiftData = {};
+  let before = {};
+  let after = {};
 
   snapshot.forEach(docSnap => {
     if (docSnap.data().category === selectedCategory) {
-      const val = document.getElementById("item_" + docSnap.id).value;
-      shiftData[docSnap.id] = Number(val);
+      before[docSnap.id] = Number(document.getElementById("before_" + docSnap.id).value);
+      after[docSnap.id] = Number(document.getElementById("after_" + docSnap.id).value);
     }
   });
 
   await addDoc(collection(db, "shifts"), {
     employee,
     category: selectedCategory,
-    data: shiftData,
+    before,
+    after,
     timestamp: serverTimestamp()
   });
 
   alert("Inventory saved!");
+  loadLastDuty();
 };
 
-// LAST DUTY
-async function loadLastDuty() {
-  const q = query(collection(db, "shifts"), orderBy("timestamp", "desc"), limit(1));
-  const snapshot = await getDocs(q);
+// ADMIN LOAD ITEMS
+async function loadAdminItems() {
+  const snapshot = await getDocs(collection(db, "inventory"));
+  const select = document.getElementById("adminItem");
+  if (!select) return;
 
   snapshot.forEach(docSnap => {
-    lastDuty.innerText = "Last Duty: " + docSnap.data().employee;
+    select.innerHTML += `
+      <option value="${docSnap.id}">
+        ${docSnap.data().name}
+      </option>
+    `;
   });
 }
 
