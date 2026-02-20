@@ -16,47 +16,52 @@ let inventoryCache = {};
 let itemMap = {};
 let beforeSaved = false;
 
-/* =====================
-   DASHBOARD INIT
-===================== */
-window.onload = async function () {
+/* ================= INIT ================= */
+
+window.addEventListener("DOMContentLoaded", async () => {
 
   if (!window.location.pathname.includes("dashboard")) return;
 
-  employeeName.innerText = localStorage.getItem("employeeName");
+  document.getElementById("employeeName").innerText =
+    localStorage.getItem("employeeName");
 
   startClock();
   loadCategories();
   loadLastDuty();
-};
 
-/* =====================
-   CLOCK
-===================== */
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+  document.getElementById("saveBeforeBtn").addEventListener("click", saveBefore);
+  document.getElementById("completeShiftBtn").addEventListener("click", completeShift);
+  document.getElementById("toggleWasteBtn").addEventListener("click", toggleWaste);
+  document.getElementById("toggleAddStockBtn").addEventListener("click", toggleAddStock);
+
+});
+
+/* ================= CLOCK ================= */
+
 function startClock() {
   setInterval(() => {
     const now = new Date();
-    liveClock.innerText =
+    document.getElementById("liveClock").innerText =
       now.toLocaleDateString() + " " + now.toLocaleTimeString();
   }, 1000);
 }
 
-/* =====================
-   LAST DUTY
-===================== */
+/* ================= LAST DUTY ================= */
+
 async function loadLastDuty() {
   const q = query(collection(db, "shifts"), orderBy("timestamp", "desc"), limit(1));
-  const snapshot = await getDocs(q);
-
-  snapshot.forEach(docSnap => {
-    lastDuty.innerText = "Last Duty: " + docSnap.data().employee;
+  const snap = await getDocs(q);
+  snap.forEach(d => {
+    document.getElementById("lastDuty").innerText =
+      "Last Duty: " + d.data().employee;
   });
 }
 
-/* =====================
-   LOAD CATEGORIES
-===================== */
+/* ================= CATEGORIES ================= */
+
 async function loadCategories() {
+
   const snapshot = await getDocs(collection(db, "inventory"));
   const set = new Set();
 
@@ -64,33 +69,37 @@ async function loadCategories() {
     set.add(doc.data().category);
   });
 
-  categories.innerHTML = "";
+  const container = document.getElementById("categories");
+  container.innerHTML = "";
 
   set.forEach(cat => {
-    categories.innerHTML += `
-      <div class="categoryBtn" onclick="selectCategory('${cat}')">
-        ${cat.toUpperCase()}
-      </div>
-    `;
+
+    const btn = document.createElement("div");
+    btn.className = "categoryBtn";
+    btn.innerText = cat.toUpperCase();
+    btn.onclick = () => selectCategory(cat);
+
+    container.appendChild(btn);
   });
 }
 
-/* =====================
-   SELECT CATEGORY
-===================== */
-window.selectCategory = async function(cat) {
+/* ================= SELECT CATEGORY ================= */
+
+async function selectCategory(cat) {
 
   selectedCategory = cat;
   beforeSaved = false;
 
-  inventorySection.style.display = "block";
-  afterSection.style.display = "none";
-  wasteSection.style.display = "none";
-  addStockSection.style.display = "none";
+  document.getElementById("inventorySection").style.display = "block";
+  document.getElementById("beforeSection").style.display = "block";
+  document.getElementById("afterSection").style.display = "none";
 
-  categoryTitle.innerText = cat.toUpperCase();
+  document.getElementById("categoryTitle").innerText = cat.toUpperCase();
 
   const snapshot = await getDocs(collection(db, "inventory"));
+
+  const beforeList = document.getElementById("beforeList");
+  const overallStocks = document.getElementById("overallStocks");
 
   beforeList.innerHTML = "";
   overallStocks.innerHTML = "";
@@ -103,119 +112,128 @@ window.selectCategory = async function(cat) {
 
       itemMap[docSnap.id] = data.name;
 
-      if (!inventoryCache[docSnap.id]) {
-        inventoryCache[docSnap.id] = {
-          before: data.stock,
-          after: data.stock,
-          wasteQty: 0,
-          wasteReason: "",
-          addQty: 0
-        };
-      }
+      inventoryCache[docSnap.id] = {
+        before: data.stock,
+        after: data.stock,
+        wasteQty: 0,
+        wasteReason: "",
+        addQty: 0
+      };
 
       overallStocks.innerHTML += `
         <div>${data.name}: <strong>${data.stock}</strong></div>
       `;
 
-      beforeList.innerHTML += `
-        <div class="itemCard">
-          ${data.name}
-          <input type="number"
-            value="${inventoryCache[docSnap.id].before}"
-            onchange="updateBefore('${docSnap.id}', this.value)">
-        </div>
+      const div = document.createElement("div");
+      div.className = "itemCard";
+      div.innerHTML = `
+        ${data.name}
+        <input type="number" value="${data.stock}"
+          onchange="inventoryCache['${docSnap.id}'].before = Number(this.value)">
       `;
+
+      beforeList.appendChild(div);
     }
   });
-};
+}
 
-/* =====================
-   UPDATE CACHE
-===================== */
-window.updateBefore = (id, val) => inventoryCache[id].before = Number(val);
-window.updateAfter = (id, val) => inventoryCache[id].after = Number(val);
-window.updateWasteQty = (id, val) => inventoryCache[id].wasteQty = Number(val);
-window.updateWasteReason = (id, val) => inventoryCache[id].wasteReason = val;
-window.updateAddQty = (id, val) => inventoryCache[id].addQty = Number(val);
+/* ================= SAVE BEFORE ================= */
 
-/* =====================
-   SAVE BEFORE
-===================== */
-window.confirmBefore = function() {
+function saveBefore() {
+
   if (!confirm("Proceed? Cannot edit later.")) return;
 
   beforeSaved = true;
-  afterSection.style.display = "block";
-  loadAfter();
-};
 
-/* =====================
-   LOAD AFTER
-===================== */
-function loadAfter() {
+  document.getElementById("beforeSection").style.display = "none";
+  document.getElementById("afterSection").style.display = "block";
+
+  loadAfterSection();
+}
+
+/* ================= LOAD AFTER ================= */
+
+function loadAfterSection() {
+
+  const afterList = document.getElementById("afterList");
   afterList.innerHTML = "";
 
   for (let id in inventoryCache) {
-    afterList.innerHTML += `
-      <div class="itemCard">
-        ${itemMap[id]}
-        <input type="number"
-          value="${inventoryCache[id].after}"
-          onchange="updateAfter('${id}', this.value)">
-      </div>
+
+    const div = document.createElement("div");
+    div.className = "itemCard";
+
+    div.innerHTML = `
+      ${itemMap[id]}
+      <input type="number"
+        value="${inventoryCache[id].after}"
+        onchange="inventoryCache['${id}'].after = Number(this.value)">
     `;
+
+    afterList.appendChild(div);
   }
 }
 
-/* =====================
-   WASTE
-===================== */
-window.toggleWaste = function() {
-  wasteSection.style.display =
-    wasteSection.style.display === "none" ? "block" : "none";
+/* ================= WASTE ================= */
 
+function toggleWaste() {
+
+  const section = document.getElementById("wasteSection");
+  section.style.display =
+    section.style.display === "none" ? "block" : "none";
+
+  const wasteList = document.getElementById("wasteList");
   wasteList.innerHTML = "";
 
   for (let id in inventoryCache) {
-    wasteList.innerHTML += `
-      <div class="itemCard">
-        ${itemMap[id]}
-        <input type="number" placeholder="Waste Qty"
-          onchange="updateWasteQty('${id}', this.value)">
-        <input type="text" placeholder="Reason"
-          onchange="updateWasteReason('${id}', this.value)">
-      </div>
+
+    const div = document.createElement("div");
+    div.className = "itemCard";
+
+    div.innerHTML = `
+      ${itemMap[id]}
+      <input type="number" placeholder="Qty"
+        onchange="inventoryCache['${id}'].wasteQty = Number(this.value)">
+      <input type="text" placeholder="Reason"
+        onchange="inventoryCache['${id}'].wasteReason = this.value">
     `;
+
+    wasteList.appendChild(div);
   }
-};
+}
 
-/* =====================
-   ADD STOCK
-===================== */
-window.toggleAddStock = function() {
-  addStockSection.style.display =
-    addStockSection.style.display === "none" ? "block" : "none";
+/* ================= ADD STOCK ================= */
 
-  addStockList.innerHTML = "";
+function toggleAddStock() {
+
+  const section = document.getElementById("addStockSection");
+  section.style.display =
+    section.style.display === "none" ? "block" : "none";
+
+  const list = document.getElementById("addStockList");
+  list.innerHTML = "";
 
   for (let id in inventoryCache) {
-    addStockList.innerHTML += `
-      <div class="itemCard">
-        ${itemMap[id]}
-        <input type="number" placeholder="Add Qty"
-          onchange="updateAddQty('${id}', this.value)">
-      </div>
-    `;
-  }
-};
 
-/* =====================
-   COMPLETE SHIFT
-===================== */
-window.completeShift = async function() {
+    const div = document.createElement("div");
+    div.className = "itemCard";
+
+    div.innerHTML = `
+      ${itemMap[id]}
+      <input type="number" placeholder="Qty"
+        onchange="inventoryCache['${id}'].addQty = Number(this.value)">
+    `;
+
+    list.appendChild(div);
+  }
+}
+
+/* ================= COMPLETE SHIFT ================= */
+
+async function completeShift() {
 
   if (!beforeSaved) {
-    alert("Complete Before Shift first.");
+    alert("Save Before Shift first.");
     return;
   }
 
@@ -224,7 +242,7 @@ window.completeShift = async function() {
   const employee = localStorage.getItem("employeeName");
 
   let beforeData = {};
-  let afterData = {};
+  let afterData = "";
   let summaryHTML = "";
 
   for (let id in inventoryCache) {
@@ -234,27 +252,15 @@ window.completeShift = async function() {
     beforeData[itemName] = inventoryCache[id].before;
     afterData[itemName] = inventoryCache[id].after;
 
-    // UPDATE STOCK (After + Add - Waste)
     const finalStock =
       inventoryCache[id].after +
-      (inventoryCache[id].addQty || 0) -
-      (inventoryCache[id].wasteQty || 0);
+      inventoryCache[id].addQty -
+      inventoryCache[id].wasteQty;
 
     await updateDoc(doc(db, "inventory", id), {
       stock: finalStock
     });
 
-    // LOG ADD STOCK
-    if (inventoryCache[id].addQty > 0) {
-      await addDoc(collection(db, "addedStocks"), {
-        employee,
-        itemName,
-        qty: inventoryCache[id].addQty,
-        timestamp: serverTimestamp()
-      });
-    }
-
-    // LOG WASTE
     if (inventoryCache[id].wasteQty > 0) {
       await addDoc(collection(db, "wastes"), {
         employee,
@@ -265,11 +271,18 @@ window.completeShift = async function() {
       });
     }
 
+    if (inventoryCache[id].addQty > 0) {
+      await addDoc(collection(db, "addedStocks"), {
+        employee,
+        itemName,
+        qty: inventoryCache[id].addQty,
+        timestamp: serverTimestamp()
+      });
+    }
+
     summaryHTML += `
       <div>
-        ${itemName}:
-        Before ${inventoryCache[id].before} →
-        After ${inventoryCache[id].after}
+        ${itemName}: ${inventoryCache[id].before} → ${finalStock}
       </div>
     `;
   }
@@ -282,17 +295,15 @@ window.completeShift = async function() {
     timestamp: serverTimestamp()
   });
 
-  shiftSummary.style.display = "block";
-  summaryContent.innerHTML = summaryHTML;
+  document.getElementById("shiftSummary").style.display = "block";
+  document.getElementById("summaryContent").innerHTML = summaryHTML;
 
-  alert("Shift Completed!");
   loadLastDuty();
-};
+}
 
-/* =====================
-   LOGOUT
-===================== */
-window.logout = function() {
+/* ================= LOGOUT ================= */
+
+function logout() {
   localStorage.clear();
   window.location.href = "index.html";
-};
+}
