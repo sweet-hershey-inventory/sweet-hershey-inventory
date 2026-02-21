@@ -5,288 +5,207 @@ import {
   addDoc,
   updateDoc,
   doc,
+  serverTimestamp,
   query,
   orderBy,
-  limit,
-  serverTimestamp
+  limit
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* GLOBAL STATE */
-let inventory = [];
-let shiftData = {};
-let currentCategory = null;
+const currentPage = window.location.pathname.includes("dashboard")
+  ? "dashboard"
+  : "login";
 
-/* INIT */
-window.addEventListener("DOMContentLoaded", async () => {
+/* ================= LOGIN SYSTEM ================= */
 
-  if (!window.location.pathname.includes("dashboard")) return;
+if (currentPage === "login") {
 
-  document.getElementById("employeeName").innerText =
-    localStorage.getItem("employeeName");
+  const loginBtn = document.getElementById("loginBtn");
+  const pinSection = document.getElementById("pinSection");
+  const errorText = document.getElementById("loginError");
 
+  let tempUser = null;
+
+  loginBtn.onclick = async () => {
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    if (!tempUser) {
+      if (
+        (username === "staff" && password === "hershey123") ||
+        (username === "admin" && password === "SWEEThershey2025")
+      ) {
+        tempUser = username;
+        pinSection.style.display = "block";
+      } else {
+        errorText.textContent = "Invalid credentials";
+      }
+    } else {
+      const pin = document.getElementById("pin").value;
+      const snapshot = await getDocs(collection(db, "employees"));
+
+      let valid = false;
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (
+          data.pin === pin &&
+          ((tempUser === "staff" && data.role === "employee") ||
+           (tempUser === "admin" && data.role === "admin"))
+        ) {
+          valid = true;
+          sessionStorage.setItem("employeeName", data.name);
+        }
+      });
+
+      if (valid) {
+        window.location.href = "dashboard.html";
+      } else {
+        errorText.textContent = "Invalid PIN";
+      }
+    }
+  };
+}
+
+/* ================= DASHBOARD ================= */
+
+if (currentPage === "dashboard") {
+
+  const employeeName = sessionStorage.getItem("employeeName");
+  if (!employeeName) window.location.href = "index.html";
+
+  const categoryContainer = document.getElementById("categoryContainer");
+  const inventoryContainer = document.getElementById("inventoryContainer");
+
+  let inventoryData = [];
+  let categories = [];
+  let selectedCategory = null;
+
+  let shiftState = {
+    before: {},
+    after: {},
+    beforeSaved: false
+  };
+
+  /* Live Clock */
+  function startClock() {
+    const clock = document.getElementById("liveClock");
+    setInterval(() => {
+      const now = new Date();
+      clock.textContent = now.toLocaleString();
+    }, 1000);
+  }
   startClock();
-  await loadInventory();
-  buildCategories();
+
+  /* Load Last Duty */
+  async function loadLastDuty() {
+    const q = query(collection(db, "shifts"), orderBy("createdAt", "desc"), limit(1));
+    const snapshot = await getDocs(q);
+    snapshot.forEach(docSnap => {
+      document.getElementById("lastDuty").textContent =
+        docSnap.data().employee;
+    });
+  }
   loadLastDuty();
-});
 
-/* CLOCK */
-function startClock() {
-  setInterval(() => {
-    const now = new Date();
-    document.getElementById("liveClock").innerText =
-      now.toLocaleDateString() + " " + now.toLocaleTimeString();
-  }, 1000);
-}
+  /* Load Inventory */
+  async function loadInventory() {
+    const snapshot = await getDocs(collection(db, "inventory"));
+    inventoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(i => i.active === true);
 
-/* LOAD INVENTORY */
-async function loadInventory() {
-  const snap = await getDocs(collection(db, "inventory"));
-  inventory = [];
-  snap.forEach(d => {
-    const data = d.data();
-    inventory.push({
-      id: d.id,
-      name: data.name,
-      category: data.category,
-      stock: Number(data.stock)
-    });
-  });
-}
-
-/* BUILD CATEGORIES */
-function buildCategories() {
-  const set = new Set(inventory.map(i => i.category));
-  const container = document.getElementById("categories");
-  container.innerHTML = "";
-
-  set.forEach(cat => {
-    const btn = document.createElement("div");
-    btn.className = "categoryBtn";
-    btn.innerText = cat;
-    btn.onclick = () => openCategory(cat);
-    container.appendChild(btn);
-  });
-}
-
-/* OPEN CATEGORY */
-function openCategory(cat) {
-
-  currentCategory = cat;
-
-  if (!shiftData[cat]) {
-    shiftData[cat] = {
-      locked: false,
-      items: {}
-    };
+    categories = [...new Set(inventoryData.map(i => i.category))];
+    renderCategories();
   }
 
-  document.getElementById("inventorySection").style.display = "block";
-  document.getElementById("categoryTitle").innerText = cat;
-
-  renderCategory();
-}
-
-/* RENDER CATEGORY */
-function renderCategory() {
-
-  const state = shiftData[currentCategory];
-
-  const beforeList = document.getElementById("beforeList");
-  const afterList = document.getElementById("afterList");
-  const overallStocks = document.getElementById("overallStocks");
-
-  beforeList.innerHTML = "";
-  afterList.innerHTML = "";
-  overallStocks.innerHTML = "";
-
-  inventory
-    .filter(i => i.category === currentCategory)
-    .forEach(item => {
-
-      if (!state.items[item.id]) {
-        state.items[item.id] = {
-          before: item.stock,
-          after: item.stock,
-          add: 0,
-          waste: 0,
-          reason: ""
-        };
-      }
-
-      const s = state.items[item.id];
-
-      overallStocks.innerHTML +=
-        `<div>${item.name}: ${item.stock}</div>`;
-
-      if (!state.locked) {
-        const input = document.createElement("input");
-        input.type = "number";
-        input.value = s.before;
-        input.oninput = e => s.before = Number(e.target.value);
-
-        const div = document.createElement("div");
-        div.className = "itemCard";
-        div.innerText = item.name;
-        div.appendChild(input);
-        beforeList.appendChild(div);
-      }
-
-      const afterInput = document.createElement("input");
-      afterInput.type = "number";
-      afterInput.value = s.after;
-      afterInput.oninput = e => s.after = Number(e.target.value);
-
-      const div2 = document.createElement("div");
-      div2.className = "itemCard";
-      div2.innerText = item.name;
-      div2.appendChild(afterInput);
-      afterList.appendChild(div2);
+  function renderCategories() {
+    categoryContainer.innerHTML = "";
+    categories.forEach(cat => {
+      const btn = document.createElement("button");
+      btn.textContent = cat;
+      btn.className = "category-btn";
+      btn.onclick = () => {
+        selectedCategory = cat;
+        renderItems(cat);
+      };
+      categoryContainer.appendChild(btn);
     });
-
-  document.getElementById("beforeSection").style.display =
-    state.locked ? "none" : "block";
-
-  document.getElementById("afterSection").style.display =
-    state.locked ? "block" : "none";
-}
-
-/* SAVE BEFORE */
-window.saveBefore = function() {
-  if (!confirm("Lock Before Shift?")) return;
-  shiftData[currentCategory].locked = true;
-  renderCategory();
-};
-
-/* ADD STOCK */
-window.toggleAdd = function() {
-
-  const section = document.getElementById("addSection");
-  section.style.display =
-    section.style.display === "none" ? "block" : "none";
-
-  section.innerHTML = "";
-
-  const state = shiftData[currentCategory];
-
-  Object.entries(state.items).forEach(([id, s]) => {
-
-    const item = inventory.find(i => i.id === id);
-
-    const div = document.createElement("div");
-    div.className = "itemCard";
-
-    const input = document.createElement("input");
-    input.type = "number";
-    input.placeholder = "Add Qty";
-    input.oninput = e => s.add = Number(e.target.value);
-
-    div.innerText = item.name;
-    div.appendChild(input);
-
-    section.appendChild(div);
-  });
-};
-
-/* WASTE */
-window.toggleWaste = function() {
-
-  const section = document.getElementById("wasteSection");
-  section.style.display =
-    section.style.display === "none" ? "block" : "none";
-
-  section.innerHTML = "";
-
-  const state = shiftData[currentCategory];
-
-  Object.entries(state.items).forEach(([id, s]) => {
-
-    const item = inventory.find(i => i.id === id);
-
-    const div = document.createElement("div");
-    div.className = "itemCard";
-
-    const qty = document.createElement("input");
-    qty.type = "number";
-    qty.placeholder = "Waste Qty";
-    qty.oninput = e => s.waste = Number(e.target.value);
-
-    const reason = document.createElement("input");
-    reason.type = "text";
-    reason.placeholder = "Reason";
-    reason.oninput = e => s.reason = e.target.value;
-
-    div.innerText = item.name;
-    div.appendChild(qty);
-    div.appendChild(reason);
-
-    section.appendChild(div);
-  });
-};
-
-/* COMPLETE SHIFT */
-window.completeShift = async function() {
-
-  const state = shiftData[currentCategory];
-
-  if (!state.locked) {
-    alert("Save Before Shift first.");
-    return;
   }
 
-  if (!confirm("Complete shift?")) return;
+  function renderItems(category) {
+    inventoryContainer.innerHTML = "";
+    const items = inventoryData.filter(i => i.category === category);
 
-  const employee = localStorage.getItem("employeeName");
+    items.forEach(item => {
+      const beforeVal = shiftState.before[item.id] ?? item.stock;
+      const afterVal = shiftState.after[item.id] ?? "";
 
-  let summary = "";
+      const card = document.createElement("div");
+      card.className = "item-card";
 
-  for (let [id, s] of Object.entries(state.items)) {
+      card.innerHTML = `
+        <h4>${item.name}</h4>
+        ${!shiftState.beforeSaved ? `
+          <label>Before</label>
+          <input type="number" value="${beforeVal}" data-id="${item.id}" class="beforeInput">
+        ` : `
+          <p>Before: ${beforeVal}</p>
+          <label>After</label>
+          <input type="number" value="${afterVal}" data-id="${item.id}" class="afterInput">
+        `}
+      `;
 
-    const finalStock = s.after + s.add - s.waste;
-
-    await updateDoc(doc(db, "inventory", id), {
-      stock: finalStock
+      inventoryContainer.appendChild(card);
     });
 
-    summary += `
-      <div>
-        ${inventory.find(i => i.id === id).name}
-        → Final: ${finalStock}
-        | Added: ${s.add}
-        | Waste: ${s.waste}
-      </div>
-    `;
+    attachInputListeners();
   }
 
-  await addDoc(collection(db, "shifts"), {
-    employee,
-    category: currentCategory,
-    data: state.items,
-    timestamp: serverTimestamp()
-  });
+  function attachInputListeners() {
+    document.querySelectorAll(".beforeInput").forEach(input => {
+      input.oninput = e => {
+        shiftState.before[e.target.dataset.id] = Number(e.target.value);
+      };
+    });
 
-  alert("You did a great work! Don't forget to rest and say thank you!");
+    document.querySelectorAll(".afterInput").forEach(input => {
+      input.oninput = e => {
+        shiftState.after[e.target.dataset.id] = Number(e.target.value);
+      };
+    });
+  }
 
-  document.getElementById("categoryContainer").style.display = "none";
-  document.getElementById("inventorySection").style.display = "none";
-  document.getElementById("previewSection").style.display = "block";
-  document.getElementById("previewContent").innerHTML = summary;
+  document.getElementById("saveBeforeBtn").onclick = () => {
+    shiftState.beforeSaved = true;
+    if (selectedCategory) renderItems(selectedCategory);
+  };
 
-  loadLastDuty();
-};
+  document.getElementById("completeShiftBtn").onclick = async () => {
 
-/* LAST DUTY */
-async function loadLastDuty() {
-  const q = query(collection(db, "shifts"), orderBy("timestamp", "desc"), limit(1));
-  const snap = await getDocs(q);
-  snap.forEach(d => {
-    document.getElementById("lastDuty").innerText =
-      "Last Duty: " + d.data().employee;
-  });
+    if (!shiftState.beforeSaved) {
+      alert("Save Before Shift first!");
+      return;
+    }
+
+    for (let item of inventoryData) {
+      const before = shiftState.before[item.id] ?? item.stock;
+      const after = shiftState.after[item.id] ?? before;
+
+      await updateDoc(doc(db, "inventory", item.id), {
+        stock: after
+      });
+    }
+
+    await addDoc(collection(db, "shifts"), {
+      employee: employeeName,
+      before: shiftState.before,
+      after: shiftState.after,
+      createdAt: serverTimestamp()
+    });
+
+    alert("You did a great work! Don't forget to rest and say thank you!");
+
+    sessionStorage.clear();
+    window.location.href = "index.html";
+  };
+
+  loadInventory();
 }
-
-/* LOGOUT */
-window.logout = function() {
-  localStorage.clear();
-  window.location.href = "index.html";
-};
