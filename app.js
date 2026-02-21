@@ -11,23 +11,40 @@ import {
   limit
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const currentPage = window.location.pathname.includes("dashboard")
+const page = window.location.pathname.includes("dashboard")
   ? "dashboard"
   : "login";
 
-/* ================= LOGIN SYSTEM ================= */
+/* ================= LOGIN ================= */
 
-if (currentPage === "login") {
+if (page === "login") {
 
   const loginBtn = document.getElementById("loginBtn");
-  const pinSection = document.getElementById("pinSection");
   const errorText = document.getElementById("loginError");
+  const togglePassword = document.getElementById("togglePassword");
+  const passwordInput = document.getElementById("password");
+  const pinSection = document.getElementById("pinSection");
 
   let tempUser = null;
 
+  togglePassword.onclick = () => {
+    passwordInput.type =
+      passwordInput.type === "password" ? "text" : "password";
+  };
+
+  function clearError() {
+    errorText.textContent = "";
+  }
+
+  document.getElementById("username").oninput = clearError;
+  document.getElementById("password").oninput = clearError;
+  document.getElementById("pin").oninput = clearError;
+
   loginBtn.onclick = async () => {
+    clearError();
+
     const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
+    const password = passwordInput.value;
 
     if (!tempUser) {
       if (
@@ -37,7 +54,7 @@ if (currentPage === "login") {
         tempUser = username;
         pinSection.style.display = "block";
       } else {
-        errorText.textContent = "Invalid credentials";
+        errorText.textContent = "Invalid username or password";
       }
     } else {
       const pin = document.getElementById("pin").value;
@@ -67,13 +84,32 @@ if (currentPage === "login") {
 
 /* ================= DASHBOARD ================= */
 
-if (currentPage === "dashboard") {
+if (page === "dashboard") {
 
   const employeeName = sessionStorage.getItem("employeeName");
   if (!employeeName) window.location.href = "index.html";
 
-  const categoryContainer = document.getElementById("categoryContainer");
-  const inventoryContainer = document.getElementById("inventoryContainer");
+  document.getElementById("logoutBtn").onclick = () => {
+    sessionStorage.clear();
+    window.location.href = "index.html";
+  };
+
+  function startClock() {
+    const clock = document.getElementById("liveClock");
+    setInterval(() => {
+      clock.textContent = new Date().toLocaleString();
+    }, 1000);
+  }
+  startClock();
+
+  async function loadLastDuty() {
+    const q = query(collection(db, "shifts"), orderBy("createdAt", "desc"), limit(1));
+    const snap = await getDocs(q);
+    snap.forEach(d => {
+      document.getElementById("lastDuty").textContent = d.data().employee;
+    });
+  }
+  loadLastDuty();
 
   let inventoryData = [];
   let categories = [];
@@ -82,34 +118,14 @@ if (currentPage === "dashboard") {
   let shiftState = {
     before: {},
     after: {},
-    beforeSaved: false
+    added: {},
+    wastes: {},
+    stage: "before"
   };
 
-  /* Live Clock */
-  function startClock() {
-    const clock = document.getElementById("liveClock");
-    setInterval(() => {
-      const now = new Date();
-      clock.textContent = now.toLocaleString();
-    }, 1000);
-  }
-  startClock();
-
-  /* Load Last Duty */
-  async function loadLastDuty() {
-    const q = query(collection(db, "shifts"), orderBy("createdAt", "desc"), limit(1));
-    const snapshot = await getDocs(q);
-    snapshot.forEach(docSnap => {
-      document.getElementById("lastDuty").textContent =
-        docSnap.data().employee;
-    });
-  }
-  loadLastDuty();
-
-  /* Load Inventory */
   async function loadInventory() {
-    const snapshot = await getDocs(collection(db, "inventory"));
-    inventoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+    const snap = await getDocs(collection(db, "inventory"));
+    inventoryData = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(i => i.active === true);
 
     categories = [...new Set(inventoryData.map(i => i.category))];
@@ -117,7 +133,9 @@ if (currentPage === "dashboard") {
   }
 
   function renderCategories() {
-    categoryContainer.innerHTML = "";
+    const container = document.getElementById("categoryContainer");
+    container.innerHTML = "";
+
     categories.forEach(cat => {
       const btn = document.createElement("button");
       btn.textContent = cat;
@@ -126,40 +144,45 @@ if (currentPage === "dashboard") {
         selectedCategory = cat;
         renderItems(cat);
       };
-      categoryContainer.appendChild(btn);
+      container.appendChild(btn);
     });
   }
 
   function renderItems(category) {
-    inventoryContainer.innerHTML = "";
+    const container = document.getElementById("inventoryContainer");
+    container.innerHTML = "";
+
     const items = inventoryData.filter(i => i.category === category);
 
     items.forEach(item => {
-      const beforeVal = shiftState.before[item.id] ?? item.stock;
-      const afterVal = shiftState.after[item.id] ?? "";
 
       const card = document.createElement("div");
       card.className = "item-card";
 
-      card.innerHTML = `
-        <h4>${item.name}</h4>
-        ${!shiftState.beforeSaved ? `
-          <label>Before</label>
-          <input type="number" value="${beforeVal}" data-id="${item.id}" class="beforeInput">
-        ` : `
-          <p>Before: ${beforeVal}</p>
-          <label>After</label>
-          <input type="number" value="${afterVal}" data-id="${item.id}" class="afterInput">
-        `}
-      `;
+      if (shiftState.stage === "before") {
+        const val = shiftState.before[item.id] ?? item.stock;
+        card.innerHTML = `
+          <h4>${item.name}</h4>
+          <input type="number" value="${val}" data-id="${item.id}" class="beforeInput">
+        `;
+      }
 
-      inventoryContainer.appendChild(card);
+      if (shiftState.stage === "after") {
+        const val = shiftState.after[item.id] ?? "";
+        card.innerHTML = `
+          <h4>${item.name}</h4>
+          <p>Before: ${shiftState.before[item.id]}</p>
+          <input type="number" value="${val}" data-id="${item.id}" class="afterInput">
+        `;
+      }
+
+      container.appendChild(card);
     });
 
-    attachInputListeners();
+    attachInputs();
   }
 
-  function attachInputListeners() {
+  function attachInputs() {
     document.querySelectorAll(".beforeInput").forEach(input => {
       input.oninput = e => {
         shiftState.before[e.target.dataset.id] = Number(e.target.value);
@@ -173,38 +196,47 @@ if (currentPage === "dashboard") {
     });
   }
 
-  document.getElementById("saveBeforeBtn").onclick = () => {
-    shiftState.beforeSaved = true;
-    if (selectedCategory) renderItems(selectedCategory);
-  };
+  document.getElementById("submitShiftBtn").onclick = async () => {
 
-  document.getElementById("completeShiftBtn").onclick = async () => {
-
-    if (!shiftState.beforeSaved) {
-      alert("Save Before Shift first!");
+    if (shiftState.stage === "before") {
+      shiftState.stage = "after";
+      document.getElementById("shiftTitle").textContent = "After Inventory Shift";
+      document.getElementById("sideActions").style.display = "block";
+      if (selectedCategory) renderItems(selectedCategory);
       return;
     }
 
-    for (let item of inventoryData) {
-      const before = shiftState.before[item.id] ?? item.stock;
-      const after = shiftState.after[item.id] ?? before;
+    if (shiftState.stage === "after") {
 
-      await updateDoc(doc(db, "inventory", item.id), {
-        stock: after
+      for (let item of inventoryData) {
+        const after = shiftState.after[item.id] ?? shiftState.before[item.id];
+        await updateDoc(doc(db, "inventory", item.id), {
+          stock: after
+        });
+      }
+
+      await addDoc(collection(db, "shifts"), {
+        employee: employeeName,
+        before: shiftState.before,
+        after: shiftState.after,
+        createdAt: serverTimestamp()
       });
+
+      document.getElementById("categoryContainer").style.display = "none";
+      document.getElementById("inventoryContainer").style.display = "none";
+      document.getElementById("sideActions").style.display = "none";
+      document.getElementById("submitShiftBtn").style.display = "none";
+      document.getElementById("shiftTitle").style.display = "none";
+
+      const preview = document.getElementById("finalPreview");
+      preview.style.display = "block";
+      preview.innerHTML = `
+        <h3>Shift Completed</h3>
+        <p>Employee: ${employeeName}</p>
+        <pre>${JSON.stringify(shiftState, null, 2)}</pre>
+        <p>You did a great work! Don't forget to rest and say thank you!</p>
+      `;
     }
-
-    await addDoc(collection(db, "shifts"), {
-      employee: employeeName,
-      before: shiftState.before,
-      after: shiftState.after,
-      createdAt: serverTimestamp()
-    });
-
-    alert("You did a great work! Don't forget to rest and say thank you!");
-
-    sessionStorage.clear();
-    window.location.href = "index.html";
   };
 
   loadInventory();
