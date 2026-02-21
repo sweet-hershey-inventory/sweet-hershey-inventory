@@ -5,31 +5,28 @@ import {
   addDoc,
   updateDoc,
   doc,
-  serverTimestamp,
   query,
   orderBy,
-  limit
+  limit,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const page = window.location.pathname.includes("dashboard")
-  ? "dashboard"
-  : "login";
+const path = window.location.pathname;
 
 /* ================= LOGIN ================= */
 
-if (page === "login") {
+if (path.includes("index")) {
 
+  const toggle = document.getElementById("togglePassword");
+  const password = document.getElementById("password");
   const loginBtn = document.getElementById("loginBtn");
   const errorText = document.getElementById("loginError");
-  const togglePassword = document.getElementById("togglePassword");
-  const passwordInput = document.getElementById("password");
   const pinSection = document.getElementById("pinSection");
 
-  let tempUser = null;
+  let tempRole = null;
 
-  togglePassword.onclick = () => {
-    passwordInput.type =
-      passwordInput.type === "password" ? "text" : "password";
+  toggle.onclick = () => {
+    password.type = password.type === "password" ? "text" : "password";
   };
 
   function clearError() {
@@ -37,90 +34,86 @@ if (page === "login") {
   }
 
   document.getElementById("username").oninput = clearError;
-  document.getElementById("password").oninput = clearError;
+  password.oninput = clearError;
   document.getElementById("pin").oninput = clearError;
 
   loginBtn.onclick = async () => {
+
     clearError();
 
     const username = document.getElementById("username").value;
-    const password = passwordInput.value;
+    const pass = password.value;
 
-    if (!tempUser) {
-      if (
-        (username === "staff" && password === "hershey123") ||
-        (username === "admin" && password === "SWEEThershey2025")
-      ) {
-        tempUser = username;
+    if (!tempRole) {
+      if (username === "staff" && pass === "hershey123") {
+        tempRole = "employee";
+        pinSection.style.display = "block";
+      } else if (username === "admin" && pass === "SWEEThershey2025") {
+        tempRole = "admin";
         pinSection.style.display = "block";
       } else {
-        errorText.textContent = "Invalid username or password";
+        errorText.textContent = "Invalid credentials";
       }
     } else {
-      const pin = document.getElementById("pin").value;
-      const snapshot = await getDocs(collection(db, "employees"));
 
-      let valid = false;
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (
-          data.pin === pin &&
-          ((tempUser === "staff" && data.role === "employee") ||
-           (tempUser === "admin" && data.role === "admin"))
-        ) {
-          valid = true;
-          sessionStorage.setItem("employeeName", data.name);
+      const pin = document.getElementById("pin").value;
+      const snap = await getDocs(collection(db, "employees"));
+
+      let foundUser = null;
+
+      snap.forEach(d => {
+        const data = d.data();
+        if (data.pin === pin && data.role === tempRole) {
+          foundUser = data;
         }
       });
 
-      if (valid) {
-        window.location.href = "dashboard.html";
-      } else {
+      if (!foundUser) {
         errorText.textContent = "Invalid PIN";
+        return;
+      }
+
+      sessionStorage.setItem("name", foundUser.name);
+      sessionStorage.setItem("role", foundUser.role);
+      sessionStorage.setItem("pin", foundUser.pin);
+
+      if (foundUser.role === "admin") {
+        window.location.href = "admin.html";
+      } else {
+        window.location.href = "dashboard.html";
       }
     }
   };
 }
 
-/* ================= DASHBOARD ================= */
+/* ================= STAFF DASHBOARD ================= */
 
-if (page === "dashboard") {
+if (path.includes("dashboard")) {
 
-  const employeeName = sessionStorage.getItem("employeeName");
-  if (!employeeName) window.location.href = "index.html";
+  const role = sessionStorage.getItem("role");
+  if (role !== "employee") window.location.href = "index.html";
 
   document.getElementById("logoutBtn").onclick = () => {
     sessionStorage.clear();
     window.location.href = "index.html";
   };
 
-  function startClock() {
-    const clock = document.getElementById("liveClock");
-    setInterval(() => {
-      clock.textContent = new Date().toLocaleString();
-    }, 1000);
-  }
-  startClock();
-
-  async function loadLastDuty() {
-    const q = query(collection(db, "shifts"), orderBy("createdAt", "desc"), limit(1));
-    const snap = await getDocs(q);
-    snap.forEach(d => {
-      document.getElementById("lastDuty").textContent = d.data().employee;
-    });
-  }
-  loadLastDuty();
+  setInterval(() => {
+    document.getElementById("liveClock").textContent =
+      new Date().toLocaleString();
+  }, 1000);
 
   let inventoryData = [];
   let categories = [];
   let selectedCategory = null;
 
-  let shiftState = {
+  let stage = "before";
+
+  let state = {
     before: {},
     after: {},
-    added: {},
-    wastes: {},
-    stage: "before"
+    added: [],
+    wasted: []
   };
 
   async function loadInventory() {
@@ -130,6 +123,7 @@ if (page === "dashboard") {
 
     categories = [...new Set(inventoryData.map(i => i.category))];
     renderCategories();
+    updateUI();
   }
 
   function renderCategories() {
@@ -142,102 +136,163 @@ if (page === "dashboard") {
       btn.className = "category-btn";
       btn.onclick = () => {
         selectedCategory = cat;
-        renderItems(cat);
+        renderItems();
       };
       container.appendChild(btn);
     });
   }
 
-  function renderItems(category) {
+  function renderItems() {
+
+    if (!selectedCategory) return;
+
     const container = document.getElementById("inventoryContainer");
     container.innerHTML = "";
 
-    const items = inventoryData.filter(i => i.category === category);
+    inventoryData
+      .filter(i => i.category === selectedCategory)
+      .forEach(item => {
 
-    items.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "item-card";
 
-      const card = document.createElement("div");
-      card.className = "item-card";
+        if (stage === "before") {
+          const val = state.before[item.id] ?? item.stock;
+          card.innerHTML = `
+            <h4>${item.name}</h4>
+            <input type="number" value="${val}">
+          `;
+          card.querySelector("input").oninput = e => {
+            state.before[item.id] = Number(e.target.value);
+          };
+        }
 
-      if (shiftState.stage === "before") {
-        const val = shiftState.before[item.id] ?? item.stock;
-        card.innerHTML = `
-          <h4>${item.name}</h4>
-          <input type="number" value="${val}" data-id="${item.id}" class="beforeInput">
-        `;
-      }
+        if (stage === "after") {
+          const val = state.after[item.id] ?? "";
+          card.innerHTML = `
+            <h4>${item.name}</h4>
+            <p>Before: ${state.before[item.id]}</p>
+            <input type="number" value="${val}">
+          `;
+          card.querySelector("input").oninput = e => {
+            state.after[item.id] = Number(e.target.value);
+          };
+        }
 
-      if (shiftState.stage === "after") {
-        const val = shiftState.after[item.id] ?? "";
-        card.innerHTML = `
-          <h4>${item.name}</h4>
-          <p>Before: ${shiftState.before[item.id]}</p>
-          <input type="number" value="${val}" data-id="${item.id}" class="afterInput">
-        `;
-      }
-
-      container.appendChild(card);
-    });
-
-    attachInputs();
+        container.appendChild(card);
+      });
   }
 
-  function attachInputs() {
-    document.querySelectorAll(".beforeInput").forEach(input => {
-      input.oninput = e => {
-        shiftState.before[e.target.dataset.id] = Number(e.target.value);
-      };
-    });
+  function updateUI() {
 
-    document.querySelectorAll(".afterInput").forEach(input => {
-      input.oninput = e => {
-        shiftState.after[e.target.dataset.id] = Number(e.target.value);
-      };
-    });
+    const title = document.getElementById("shiftTitle");
+    const btn = document.getElementById("mainActionBtn");
+    const side = document.getElementById("sidePanel");
+
+    if (stage === "before") {
+      title.textContent = "Before Inventory Shift";
+      btn.textContent = "Submit Before Shift";
+      side.style.display = "none";
+    }
+
+    if (stage === "after") {
+      title.textContent = "After Inventory Shift";
+      btn.textContent = "Complete Shift";
+      side.style.display = "block";
+    }
   }
 
-  document.getElementById("submitShiftBtn").onclick = async () => {
+  document.getElementById("mainActionBtn").onclick = async () => {
 
-    if (shiftState.stage === "before") {
-      shiftState.stage = "after";
-      document.getElementById("shiftTitle").textContent = "After Inventory Shift";
-      document.getElementById("sideActions").style.display = "block";
-      if (selectedCategory) renderItems(selectedCategory);
+    if (stage === "before") {
+      stage = "after";
+      updateUI();
+      renderItems();
       return;
     }
 
-    if (shiftState.stage === "after") {
+    if (stage === "after") {
 
       for (let item of inventoryData) {
-        const after = shiftState.after[item.id] ?? shiftState.before[item.id];
+        const final =
+          state.after[item.id] ?? state.before[item.id];
+
         await updateDoc(doc(db, "inventory", item.id), {
-          stock: after
+          stock: final
         });
       }
 
       await addDoc(collection(db, "shifts"), {
-        employee: employeeName,
-        before: shiftState.before,
-        after: shiftState.after,
-        createdAt: serverTimestamp()
+        employeeName: sessionStorage.getItem("name"),
+        employeePin: sessionStorage.getItem("pin"),
+        role: "employee",
+        beforeInventory: state.before,
+        afterInventory: state.after,
+        addedStock: state.added,
+        wastedItems: state.wasted,
+        status: "completed",
+        voidedBy: null,
+        startTime: serverTimestamp(),
+        endTime: serverTimestamp()
       });
 
-      document.getElementById("categoryContainer").style.display = "none";
-      document.getElementById("inventoryContainer").style.display = "none";
-      document.getElementById("sideActions").style.display = "none";
-      document.getElementById("submitShiftBtn").style.display = "none";
-      document.getElementById("shiftTitle").style.display = "none";
-
-      const preview = document.getElementById("finalPreview");
-      preview.style.display = "block";
-      preview.innerHTML = `
-        <h3>Shift Completed</h3>
-        <p>Employee: ${employeeName}</p>
-        <pre>${JSON.stringify(shiftState, null, 2)}</pre>
-        <p>You did a great work! Don't forget to rest and say thank you!</p>
-      `;
+      document.body.innerHTML =
+        "<h2>Shift Completed Successfully</h2>";
     }
   };
 
   loadInventory();
+}
+
+/* ================= ADMIN DASHBOARD ================= */
+
+if (path.includes("admin")) {
+
+  const role = sessionStorage.getItem("role");
+  if (role !== "admin") window.location.href = "index.html";
+
+  document.getElementById("logoutBtn").onclick = () => {
+    sessionStorage.clear();
+    window.location.href = "index.html";
+  };
+
+  const list = document.getElementById("shiftList");
+  const details = document.getElementById("shiftDetails");
+
+  const snap = await getDocs(
+    query(collection(db, "shifts"), orderBy("endTime", "desc"))
+  );
+
+  snap.forEach(d => {
+
+    const data = d.data();
+
+    const btn = document.createElement("button");
+    btn.textContent =
+      data.employeeName + " - " + data.status;
+
+    btn.onclick = () => {
+      details.innerHTML = `
+        <h3>${data.employeeName}</h3>
+        <pre>${JSON.stringify(data, null, 2)}</pre>
+        ${data.status === "completed"
+          ? `<button onclick="voidShift('${d.id}')">VOID SHIFT</button>`
+          : ""}
+      `;
+    };
+
+    list.appendChild(btn);
+  });
+
+  window.voidShift = async (id) => {
+
+    const shiftDoc = await getDocs(
+      query(collection(db, "shifts"))
+    );
+
+    const shiftData =
+      (await (await fetch())).data; // placeholder
+
+    alert("Void system can be expanded further.");
+  };
 }
