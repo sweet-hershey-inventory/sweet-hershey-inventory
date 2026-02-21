@@ -5,9 +5,9 @@ import {
   addDoc,
   updateDoc,
   doc,
+  getDoc,
   query,
   orderBy,
-  limit,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -15,7 +15,7 @@ const path = window.location.pathname;
 
 /* ================= LOGIN ================= */
 
-if (path.includes("index")) {
+if (path.includes("index") || path === "/") {
 
   const toggle = document.getElementById("togglePassword");
   const password = document.getElementById("password");
@@ -54,35 +54,34 @@ if (path.includes("index")) {
       } else {
         errorText.textContent = "Invalid credentials";
       }
-    } else {
-
-      const pin = document.getElementById("pin").value;
-      const snap = await getDocs(collection(db, "employees"));
-
-      let foundUser = null;
-
-      snap.forEach(d => {
-        const data = d.data();
-        if (data.pin === pin && data.role === tempRole) {
-          foundUser = data;
-        }
-      });
-
-      if (!foundUser) {
-        errorText.textContent = "Invalid PIN";
-        return;
-      }
-
-      sessionStorage.setItem("name", foundUser.name);
-      sessionStorage.setItem("role", foundUser.role);
-      sessionStorage.setItem("pin", foundUser.pin);
-
-      if (foundUser.role === "admin") {
-        window.location.href = "admin.html";
-      } else {
-        window.location.href = "dashboard.html";
-      }
+      return;
     }
+
+    const pin = document.getElementById("pin").value;
+    const snap = await getDocs(collection(db, "employees"));
+
+    let foundUser = null;
+
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.pin === pin && data.role === tempRole) {
+        foundUser = data;
+      }
+    });
+
+    if (!foundUser) {
+      errorText.textContent = "Invalid PIN";
+      return;
+    }
+
+    sessionStorage.setItem("name", foundUser.name);
+    sessionStorage.setItem("role", foundUser.role);
+    sessionStorage.setItem("pin", foundUser.pin);
+
+    window.location.href =
+      foundUser.role === "admin"
+        ? "admin.html"
+        : "dashboard.html";
   };
 }
 
@@ -106,7 +105,6 @@ if (path.includes("dashboard")) {
   let inventoryData = [];
   let categories = [];
   let selectedCategory = null;
-
   let stage = "before";
 
   let state = {
@@ -143,7 +141,6 @@ if (path.includes("dashboard")) {
   }
 
   function renderItems() {
-
     if (!selectedCategory) return;
 
     const container = document.getElementById("inventoryContainer");
@@ -173,9 +170,36 @@ if (path.includes("dashboard")) {
             <h4>${item.name}</h4>
             <p>Before: ${state.before[item.id]}</p>
             <input type="number" value="${val}">
+            <button>Add</button>
+            <button>Waste</button>
           `;
+
+          const inputs = card.querySelectorAll("button");
+
           card.querySelector("input").oninput = e => {
             state.after[item.id] = Number(e.target.value);
+          };
+
+          inputs[0].onclick = () => {
+            const qty = prompt("Add quantity:");
+            if (!qty) return;
+            state.added.push({
+              itemId: item.id,
+              quantity: Number(qty)
+            });
+            alert("Added recorded");
+          };
+
+          inputs[1].onclick = () => {
+            const qty = prompt("Waste quantity:");
+            const reason = prompt("Reason:");
+            if (!qty || !reason) return;
+            state.wasted.push({
+              itemId: item.id,
+              quantity: Number(qty),
+              reason
+            });
+            alert("Waste recorded");
           };
         }
 
@@ -184,7 +208,6 @@ if (path.includes("dashboard")) {
   }
 
   function updateUI() {
-
     const title = document.getElementById("shiftTitle");
     const btn = document.getElementById("mainActionBtn");
     const side = document.getElementById("sidePanel");
@@ -214,8 +237,19 @@ if (path.includes("dashboard")) {
     if (stage === "after") {
 
       for (let item of inventoryData) {
-        const final =
+
+        let final =
           state.after[item.id] ?? state.before[item.id];
+
+        const added = state.added
+          .filter(a => a.itemId === item.id)
+          .reduce((sum, a) => sum + a.quantity, 0);
+
+        const wasted = state.wasted
+          .filter(w => w.itemId === item.id)
+          .reduce((sum, w) => sum + w.quantity, 0);
+
+        final = final + added - wasted;
 
         await updateDoc(doc(db, "inventory", item.id), {
           stock: final
@@ -225,7 +259,6 @@ if (path.includes("dashboard")) {
       await addDoc(collection(db, "shifts"), {
         employeeName: sessionStorage.getItem("name"),
         employeePin: sessionStorage.getItem("pin"),
-        role: "employee",
         beforeInventory: state.before,
         afterInventory: state.after,
         addedStock: state.added,
@@ -264,35 +297,43 @@ if (path.includes("admin")) {
   );
 
   snap.forEach(d => {
-
     const data = d.data();
-
     const btn = document.createElement("button");
-    btn.textContent =
-      data.employeeName + " - " + data.status;
-
-    btn.onclick = () => {
-      details.innerHTML = `
-        <h3>${data.employeeName}</h3>
-        <pre>${JSON.stringify(data, null, 2)}</pre>
-        ${data.status === "completed"
-          ? `<button onclick="voidShift('${d.id}')">VOID SHIFT</button>`
-          : ""}
-      `;
-    };
-
+    btn.textContent = data.employeeName + " - " + data.status;
+    btn.onclick = () => showDetails(d.id, data);
     list.appendChild(btn);
   });
 
+  async function showDetails(id, data) {
+    details.innerHTML = `
+      <pre>${JSON.stringify(data, null, 2)}</pre>
+      ${data.status === "completed"
+        ? `<button onclick="voidShift('${id}')">VOID SHIFT</button>`
+        : ""}
+    `;
+  }
+
   window.voidShift = async (id) => {
 
-    const shiftDoc = await getDocs(
-      query(collection(db, "shifts"))
-    );
+    const ref = doc(db, "shifts", id);
+    const snap = await getDoc(ref);
+    const data = snap.data();
 
-    const shiftData =
-      (await (await fetch())).data; // placeholder
+    if (!data) return;
 
-    alert("Void system can be expanded further.");
+    // restore inventory
+    for (let itemId in data.beforeInventory) {
+      await updateDoc(doc(db, "inventory", itemId), {
+        stock: data.beforeInventory[itemId]
+      });
+    }
+
+    await updateDoc(ref, {
+      status: "voided",
+      voidedBy: sessionStorage.getItem("name")
+    });
+
+    alert("Shift voided and stock restored");
+    location.reload();
   };
 }
