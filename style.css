@@ -105,3 +105,27 @@ button:hover {
   margin: 10px;
   border-radius: 10px;
 }
+.main-layout {
+  display: flex;
+  gap: 20px;
+}
+
+.left-panel {
+  flex: 2;
+}
+
+.right-panel {
+  flex: 1;
+  background: #fff3cd;
+  padding: 15px;
+  border-radius: 10px;
+}
+
+.category-btn {
+  background: #ff5a00;
+  color: white;
+  padding: 8px;
+  margin: 5px;
+  border: none;
+  border-radius: 6px;
+}
