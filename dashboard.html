@@ -1,41 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sweet Hershey Dashboard</title>
+  <title>Staff Dashboard</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-  <h2>Sweet Hershey Inventory System</h2>
+  <h2>Staff Inventory Dashboard</h2>
   <div>
     <span id="liveClock"></span>
     <button id="logoutBtn">Logout</button>
   </div>
 </header>
 
-<section id="lastDutyBox">
-  Last Duty: <span id="lastDuty">Loading...</span>
-</section>
+<h3 id="shiftTitle"></h3>
 
-<h3 id="shiftTitle">Before Inventory Shift</h3>
+<div class="main-layout">
 
-<section id="categoryContainer"></section>
-<section id="inventoryContainer"></section>
+  <div class="left-panel">
+    <div id="categoryContainer"></div>
+    <div id="inventoryContainer"></div>
+  </div>
 
-<div id="sideActions" style="display:none;">
-  <h4>Added Stock</h4>
-  <div id="addedContainer"></div>
+  <div class="right-panel" id="sidePanel" style="display:none;">
+    <h4>Added Stock</h4>
+    <div id="addedContainer"></div>
 
-  <h4>Wasted Item</h4>
-  <div id="wasteContainer"></div>
+    <h4>Wasted Items</h4>
+    <div id="wasteContainer"></div>
+  </div>
+
 </div>
 
-<div id="shiftControls">
-  <button id="submitShiftBtn">Submit</button>
-</div>
+<button id="mainActionBtn"></button>
 
-<section id="finalPreview" style="display:none;"></section>
+<div id="finalPreview" style="display:none;"></div>
 
 <script type="module" src="app.js"></script>
 </body>
