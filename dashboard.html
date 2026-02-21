@@ -1,61 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sweet Hershey Inventory</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sweet Hershey Dashboard</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="topbar">
-  <div>
-    <div id="employeeName"></div>
-    <div id="liveClock"></div>
-    <div id="lastDuty"></div>
-  </div>
-  <button onclick="logout()">Logout</button>
+<header>
+  <h2>Sweet Hershey Inventory System</h2>
+  <div id="liveClock"></div>
+</header>
+
+<section id="lastDutyBox">
+  Last Duty: <span id="lastDuty">Loading...</span>
+</section>
+
+<section id="categoryContainer"></section>
+
+<section id="inventoryContainer"></section>
+
+<div id="shiftControls">
+  <button id="saveBeforeBtn">Save Before Shift</button>
+  <button id="completeShiftBtn">Complete Shift</button>
 </div>
 
-<div class="container">
-
-  <div id="categoryContainer">
-    <h3>Select Category</h3>
-    <div id="categories"></div>
-  </div>
-
-  <div id="inventorySection" style="display:none;">
-    <h3 id="categoryTitle"></h3>
-
-    <div id="overallStocks"></div>
-
-    <div id="beforeSection">
-      <h4>Before Shift Inventory</h4>
-      <div id="beforeList"></div>
-      <button onclick="saveBefore()">Save Before Shift</button>
-    </div>
-
-    <div id="afterSection" style="display:none;">
-      <h4>After Shift Inventory</h4>
-      <div id="afterList"></div>
-
-      <button onclick="toggleAdd()">Add Stock</button>
-      <button onclick="toggleWaste()">Add Waste</button>
-
-      <div id="addSection" style="display:none;"></div>
-      <div id="wasteSection" style="display:none;"></div>
-
-      <button onclick="completeShift()">Complete Shift</button>
-    </div>
-  </div>
-
-  <div id="previewSection" style="display:none;">
-    <h3>Shift Summary</h3>
-    <div id="previewContent"></div>
-  </div>
-
-</div>
-
-<script type="module" src="firebase.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>
