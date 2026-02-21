@@ -1,29 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sweet Hershey Inventory Login</title>
+  <title>Sweet Hershey Login</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="login-body">
 
-  <div class="login-card">
-    <h2>Sweet Hershey Inventory</h2>
+<div class="login-card">
+  <h2>Sweet Hershey Inventory</h2>
 
-    <input type="text" id="username" placeholder="Username">
-    
-    <div class="password-wrapper">
-      <input type="password" id="password" placeholder="Password">
-      <span id="togglePassword">👁</span>
-    </div>
+  <input type="text" id="username" placeholder="Username">
 
-    <div id="pinSection" style="display:none;">
-      <input type="password" id="pin" placeholder="Enter PIN">
-    </div>
-
-    <button id="loginBtn">Login</button>
-    <p id="loginError" class="error"></p>
+  <div class="password-wrapper">
+    <input type="password" id="password" placeholder="Password">
+    <span id="togglePassword">👁</span>
   </div>
 
-  <script type="module" src="app.js"></script>
+  <div id="pinSection" style="display:none;">
+    <input type="password" id="pin" placeholder="Enter PIN">
+  </div>
+
+  <button id="loginBtn">Login</button>
+  <p id="loginError" class="error"></p>
+</div>
+
+<script type="module" src="app.js"></script>
 </body>
 </html>
