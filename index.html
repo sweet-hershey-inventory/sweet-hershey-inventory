@@ -1,34 +1,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sweet Hershey Inventory</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sweet Hershey Inventory Login</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="login-body">
 
-<div class="card fadeIn">
-  <h2 class="brand">Sweet Hershey</h2>
-  <p>Inventory System</p>
+  <div class="login-card">
+    <h2>Sweet Hershey Inventory</h2>
 
-  <form id="loginForm">
-    <input type="text" id="username" placeholder="Username" required>
-    <input type="password" id="password" placeholder="Password" required>
-    <button type="submit">Login</button>
-  </form>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
 
-  <div id="pinSection" style="display:none;">
-    <hr>
-    <form id="pinForm">
-      <input type="password" id="pin" placeholder="Enter PIN" required>
-      <button type="submit">Enter</button>
-    </form>
+    <div id="pinSection" style="display:none;">
+      <input type="password" id="pin" placeholder="Enter PIN">
+    </div>
+
+    <button id="loginBtn">Login</button>
+    <p id="loginError" class="error"></p>
   </div>
 
-  <p id="error" class="error"></p>
-</div>
-
-<script type="module" src="firebase.js"></script>
-<script type="module" src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
