@@ -8,21 +8,34 @@
 
 <header>
   <h2>Sweet Hershey Inventory System</h2>
-  <div id="liveClock"></div>
+  <div>
+    <span id="liveClock"></span>
+    <button id="logoutBtn">Logout</button>
+  </div>
 </header>
 
 <section id="lastDutyBox">
   Last Duty: <span id="lastDuty">Loading...</span>
 </section>
 
-<section id="categoryContainer"></section>
+<h3 id="shiftTitle">Before Inventory Shift</h3>
 
+<section id="categoryContainer"></section>
 <section id="inventoryContainer"></section>
 
-<div id="shiftControls">
-  <button id="saveBeforeBtn">Save Before Shift</button>
-  <button id="completeShiftBtn">Complete Shift</button>
+<div id="sideActions" style="display:none;">
+  <h4>Added Stock</h4>
+  <div id="addedContainer"></div>
+
+  <h4>Wasted Item</h4>
+  <div id="wasteContainer"></div>
 </div>
+
+<div id="shiftControls">
+  <button id="submitShiftBtn">Submit</button>
+</div>
+
+<section id="finalPreview" style="display:none;"></section>
 
 <script type="module" src="app.js"></script>
 </body>
