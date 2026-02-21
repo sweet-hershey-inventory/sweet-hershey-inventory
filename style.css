@@ -1,94 +1,82 @@
 body {
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   margin: 0;
-  background: #ffffff;
+  background: #fff8f0;
 }
 
-.brand {
-  color: #e63946;
-}
-
-.card {
-  width: 90%;
-  max-width: 400px;
-  margin: 80px auto;
-  background: white;
-  padding: 25px;
-  border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+header {
+  background: #ff4d00;
+  color: white;
+  padding: 15px;
   text-align: center;
 }
 
-input, select {
-  width: 100%;
+#liveClock {
+  font-size: 14px;
+}
+
+#lastDutyBox {
+  background: #ffc107;
   padding: 10px;
-  margin: 8px 0;
+  text-align: center;
+}
+
+.category-btn {
+  background: #ff5a00;
+  color: white;
+  border: none;
+  padding: 10px;
+  margin: 5px;
   border-radius: 8px;
-  border: 1px solid #ddd;
+  cursor: pointer;
+}
+
+.category-btn:hover {
+  background: #ff3300;
+}
+
+.item-card {
+  background: white;
+  padding: 15px;
+  margin: 10px;
+  border-left: 6px solid #ffc107;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+input {
+  width: 100%;
+  padding: 8px;
+  margin: 5px 0;
 }
 
 button {
-  width: 100%;
   padding: 10px;
-  border-radius: 8px;
-  border: none;
-  background: #ff6b00;
+  margin: 5px;
+  background: #ff4d00;
   color: white;
-  font-weight: bold;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
 }
 
 button:hover {
-  background: #e63946;
+  opacity: 0.9;
 }
 
-.topbar {
-  background: #ff6b00;
-  color: white;
-  padding: 12px;
+.login-body {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  height: 100vh;
 }
 
-.container {
-  padding: 15px;
-}
-
-.categoryGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-.categoryBtn {
-  padding: 15px;
-  background: #ffbe0b;
-  border-radius: 10px;
-  text-align: center;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.categoryBtn:hover {
-  background: #ff6b00;
-  color: white;
-}
-
-.itemCard {
-  border: 1px solid #eee;
-  padding: 8px;
-  margin: 5px 0;
-  border-radius: 10px;
-}
-
-.fadeIn {
-  animation: fade 0.4s ease-in;
-}
-
-@keyframes fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.login-card {
+  background: white;
+  padding: 30px;
+  width: 300px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .error {
